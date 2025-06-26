@@ -1,6 +1,6 @@
 body {
   font-family: 'Segoe UI', sans-serif;
-  background-color: #497b92;
+  background-color: #ffffff;
   margin: 0;
 }
 
@@ -79,6 +79,3 @@ body {
   margin-top: 5px;
 }
 
-body {
-  background-color: pink !important;
-}
