@@ -98,42 +98,93 @@ body {
 }
 
 .dashboard-header {
-  background-color: #bfe6ff;
-  padding: 20px;
-  border-radius: 10px;
+  background-color: #e3f2fd;
+  padding: 15px;
+  border-radius: 8px;
   margin-bottom: 20px;
   text-align: center;
   font-size: 24px;
   font-weight: bold;
+  color: #1976d2;
 }
 
 .card-section {
-  background-color: #bfe6ff;
-  padding: 30px;
-  border-radius: 15px;
+  background-color: #e3f2fd;
+  padding: 20px;
+  border-radius: 12px;
 }
 
 .table-card {
   background-color: white;
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 15px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 15px;
+  border: 1px solid #e0e0e0;
+}
+
+.full-width-table {
   margin-bottom: 20px;
 }
 
+.small-table {
+  height: 300px;
+}
+
 .table-title {
+  background-color: #1976d2;
+  color: white;
+  padding: 8px 15px;
+  margin: -15px -15px 15px -15px;
+  border-radius: 8px 8px 0 0;
   font-weight: bold;
-  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.dashboard-table {
+  margin-bottom: 0;
+  font-size: 12px;
+}
+
+.dashboard-table th,
+.dashboard-table td {
+  padding: 6px 8px;
+  text-align: center;
+  border: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.table-header {
+  background-color: #1976d2 !important;
+}
+
+.table-header th {
+  background-color: #1976d2 !important;
+  color: white !important;
+  font-weight: 600;
+  font-size: 11px;
+  padding: 8px 6px;
+}
+
+.dashboard-table tbody tr:nth-child(even) {
+  background-color: #f8f9fa;
+}
+
+.dashboard-table tbody tr:hover {
+  background-color: #e3f2fd;
 }
 
 .table-responsive {
   overflow-x: auto;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .view-more {
   text-align: right;
-  font-size: 0.9rem;
-  color: #007bff;
-  margin-top: 5px;
+  font-size: 11px;
+  color: #1976d2;
+  margin-top: 8px;
+  font-weight: 500;
 }
 

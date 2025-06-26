@@ -27,59 +27,176 @@
       <div class="dashboard-header">Dashboard</div>
 
       <div class="card-section">
-        <!-- Tabel Kendaraan Jala -->
-        <div class="table-card">
-          <div class="table-title">Kendaraan Jala</div>
+        <!-- Tabel Kendaraan Jala (Full Width) -->
+        <div class="table-card full-width-table">
+          <div class="table-title">Title</div>
           <div class="table-responsive">
-            <table class="table table-bordered">
-              <thead><tr><th>No</th><th>IMEI</th><th>Plat</th><th>Mileage</th></tr></thead>
+            <table class="table table-bordered dashboard-table">
+              <thead class="table-header">
+                <tr>
+                  <th>No.</th>
+                  <th>Column 1</th>
+                  <th>Column 2</th>
+                  <th>Column 3</th>
+                  <th>etc...</th>
+                </tr>
+              </thead>
               <tbody>
                 {% for item in data_jala %}
-                <tr><td>{{ loop.index }}</td><td>{{ item.imei }}</td><td>{{ item.plate }}</td><td>{{ item.mileage }} km</td></tr>
+                <tr>
+                  <td>{{ loop.index }}</td>
+                  <td>Row {{ loop.index }}</td>
+                  <td>Row {{ loop.index }}</td>
+                  <td>Row {{ loop.index }}</td>
+                  <td>etc...</td>
+                </tr>
                 {% endfor %}
+                {% if data_jala|length < 4 %}
+                  {% for i in range(data_jala|length + 1, 5) %}
+                  <tr>
+                    <td>{{ i }}</td>
+                    <td>Row {{ i }}</td>
+                    <td>Row {{ i }}</td>
+                    <td>Row {{ i }}</td>
+                    <td>etc...</td>
+                  </tr>
+                  {% endfor %}
+                {% endif %}
               </tbody>
             </table>
           </div>
-          <div class="view-more"><a href="/kendaraan-jala">View More…</a></div>
+          <div class="view-more">View More...</div>
         </div>
 
-        <div class="row">
-          <!-- Tabel Kendaraan DB -->
-          <div class="col-md-4">
-            <div class="table-card">
-              <div class="table-title">Kendaraan DB</div>
+        <!-- Row dengan 4 tabel kecil -->
+        <div class="row mt-3">
+          <!-- Tabel 1 -->
+          <div class="col-md-3">
+            <div class="table-card small-table">
+              <div class="table-title">Title</div>
               <div class="table-responsive">
-                <table class="table table-bordered">
-                  <thead><tr><th>No</th><th>Plat</th><th>Speed</th></tr></thead>
+                <table class="table table-bordered dashboard-table">
+                  <thead class="table-header">
+                    <tr>
+                      <th>No.</th>
+                      <th>Column 1</th>
+                      <th>Column 2</th>
+                      <th>Column 3</th>
+                      <th>etc...</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {% for row in data_db %}
-                    <tr><td>{{ loop.index }}</td><td>{{ row.VehicleNumber }}</td><td>{{ row.Speed }} km/h</td></tr>
+                    {% for i in range(1, 4) %}
+                    <tr>
+                      <td>{{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>etc...</td>
+                    </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
-              <div class="view-more"><a href="/kendaraan-db">View More…</a></div>
+              <div class="view-more">View More...</div>
             </div>
           </div>
 
-          <!-- Tabel Historical -->
-          <div class="col-md-4">
-            <div class="table-card">
-              <div class="table-title">Historical</div>
+          <!-- Tabel 2 -->
+          <div class="col-md-3">
+            <div class="table-card small-table">
+              <div class="table-title">Title</div>
               <div class="table-responsive">
-                <table class="table table-bordered">
-                  <thead><tr><th>No</th><th>Waktu</th><th>Engine</th></tr></thead>
+                <table class="table table-bordered dashboard-table">
+                  <thead class="table-header">
+                    <tr>
+                      <th>No.</th>
+                      <th>Column 1</th>
+                      <th>Column 2</th>
+                      <th>Column 3</th>
+                      <th>etc...</th>
+                    </tr>
+                  </thead>
                   <tbody>
-                    {% for h in data_history %}
-                    <tr><td>{{ loop.index }}</td><td>{{ h.datetime }}</td><td>{{ h.engine }}</td></tr>
+                    {% for i in range(1, 4) %}
+                    <tr>
+                      <td>{{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>etc...</td>
+                    </tr>
                     {% endfor %}
                   </tbody>
                 </table>
               </div>
-              <div class="view-more"><a href="/historical">View More…</a></div>
+              <div class="view-more">View More...</div>
             </div>
           </div>
 
+          <!-- Tabel 3 -->
+          <div class="col-md-3">
+            <div class="table-card small-table">
+              <div class="table-title">Title</div>
+              <div class="table-responsive">
+                <table class="table table-bordered dashboard-table">
+                  <thead class="table-header">
+                    <tr>
+                      <th>No.</th>
+                      <th>Column 1</th>
+                      <th>Column 2</th>
+                      <th>Column 3</th>
+                      <th>etc...</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for i in range(1, 4) %}
+                    <tr>
+                      <td>{{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>etc...</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="view-more">View More...</div>
+            </div>
+          </div>
+
+          <!-- Tabel 4 -->
+          <div class="col-md-3">
+            <div class="table-card small-table">
+              <div class="table-title">Title</div>
+              <div class="table-responsive">
+                <table class="table table-bordered dashboard-table">
+                  <thead class="table-header">
+                    <tr>
+                      <th>No.</th>
+                      <th>Column 1</th>
+                      <th>Column 2</th>
+                      <th>Column 3</th>
+                      <th>etc...</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for i in range(1, 4) %}
+                    <tr>
+                      <td>{{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>Row {{ i }}</td>
+                      <td>etc...</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <div class="view-more">View More...</div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
