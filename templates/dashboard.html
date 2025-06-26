@@ -17,21 +17,30 @@
         <img src="{{ url_for('static', filename='jala-white.png') }}" alt="JALA GPS.id">
       </div>
       <ul class="nav flex-column w-100 px-3">
-        <li class="nav-item"><a class="nav-link text-white" href="/">📊 <span class="nav-text">Dashboard</span></a></li>
-        <li class="nav-item"><a class="nav-link text-white" href="/maps">🗺️ <span class="nav-text">Maps</span></a></li>
-        <li class="nav-item"><a class="nav-link text-white" href="/historical">📂 <span class="nav-text">History</span></a></li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/">
+            <img src="{{ url_for('static', filename='dashboard-icon.png') }}" alt="Dashboard" class="nav-icon">
+            <span class="nav-text">Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/maps">
+            <img src="{{ url_for('static', filename='maps-icon.png') }}" alt="Maps" class="nav-icon">
+            <span class="nav-text">Maps</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/historical">
+            <img src="{{ url_for('static', filename='history-icon.png') }}" alt="History" class="nav-icon">
+            <span class="nav-text">History</span>
+          </a>
+        </li>
       </ul>
     </nav>
 
     <main id="mainContent" class="main-content py-4 px-5">
       <div class="dashboard-header">
         Dashboard
-        <div class="upload-section">
-          <input type="file" id="imageUpload" accept="image/*" style="display: none;">
-          <button class="upload-btn" onclick="document.getElementById('imageUpload').click();">
-            📤 Upload Image
-          </button>
-        </div>
       </div>
 
       <div class="card-section">
@@ -193,20 +202,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  // Handle image upload
-  document.getElementById('imageUpload').addEventListener('change', function(event) {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        // You can handle the uploaded image here
-        console.log('Image uploaded:', file.name);
-        alert('Image uploaded: ' + file.name);
-        // You can send this to your server or display it somewhere
-      };
-      reader.readAsDataURL(file);
-    }
-  });
+  
 });
 </script>
 </body>
