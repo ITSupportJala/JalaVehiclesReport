@@ -83,6 +83,14 @@ body {
   padding: 8px 12px;
 }
 
+.nav-item:last-child::after {
+  content: '';
+  display: block;
+  margin: 15px 15% 0 15%;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
 .nav-link:hover {
   background-color: rgba(255, 255, 255, 0.2);  /* biru transparan */
   border-radius: 5px;
@@ -92,10 +100,29 @@ body {
   width: 100%;
   text-align: center;
   margin-bottom: 20px;
+  position: relative;
 }
 
-.logo img {
-  width: 70%;
+.logo img:first-child {
+  width: 60%;
+  display: block;
+  margin: 0 auto 8px auto;
+}
+
+.logo img:last-child {
+  width: 45%;
+  display: block;
+  margin: 0 auto;
+}
+
+.logo::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.3);
 }
 
 .dashboard-header {
