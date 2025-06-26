@@ -98,14 +98,35 @@ body {
 }
 
 .dashboard-header {
-  background-color: #e3f2fd;
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  text-align: center;
   font-size: 24px;
-  font-weight: bold;
-  color: #1976d2;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.upload-section {
+  display: flex;
+  align-items: center;
+}
+
+.upload-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.upload-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 .card-section {
@@ -187,4 +208,3 @@ body {
   margin-top: 8px;
   font-weight: 500;
 }
-

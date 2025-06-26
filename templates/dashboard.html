@@ -24,177 +24,149 @@
     </nav>
 
     <main id="mainContent" class="main-content py-4 px-5">
-      <div class="dashboard-header">Dashboard</div>
+      <div class="dashboard-header">
+        Dashboard
+        <div class="upload-section">
+          <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+          <button class="upload-btn" onclick="document.getElementById('imageUpload').click();">
+            📤 Upload Image
+          </button>
+        </div>
+      </div>
 
       <div class="card-section">
         <!-- Tabel Kendaraan Jala (Full Width) -->
         <div class="table-card full-width-table">
-          <div class="table-title">Title</div>
+          <div class="table-title">Data Kendaraan GPS.id</div>
           <div class="table-responsive">
             <table class="table table-bordered dashboard-table">
               <thead class="table-header">
                 <tr>
                   <th>No.</th>
-                  <th>Column 1</th>
-                  <th>Column 2</th>
-                  <th>Column 3</th>
-                  <th>etc...</th>
+                  <th>IMEI</th>
+                  <th>Plat Nomor</th>
+                  <th>Mileage (7 hari)</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {% for item in data_jala %}
                 <tr>
                   <td>{{ loop.index }}</td>
-                  <td>Row {{ loop.index }}</td>
-                  <td>Row {{ loop.index }}</td>
-                  <td>Row {{ loop.index }}</td>
-                  <td>etc...</td>
+                  <td>{{ item.imei }}</td>
+                  <td>{{ item.plate }}</td>
+                  <td>{{ item.mileage }} km</td>
+                  <td>Active</td>
                 </tr>
                 {% endfor %}
                 {% if data_jala|length < 4 %}
                   {% for i in range(data_jala|length + 1, 5) %}
                   <tr>
                     <td>{{ i }}</td>
-                    <td>Row {{ i }}</td>
-                    <td>Row {{ i }}</td>
-                    <td>Row {{ i }}</td>
-                    <td>etc...</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
                   </tr>
                   {% endfor %}
                 {% endif %}
               </tbody>
             </table>
           </div>
-          <div class="view-more">View More...</div>
+          <div class="view-more">
+            <a href="/kendaraan-jala" style="text-decoration: none; color: inherit;">View More...</a>
+          </div>
         </div>
 
-        <!-- Row dengan 4 tabel kecil -->
+        <!-- Row dengan 2 tabel -->
         <div class="row mt-3">
-          <!-- Tabel 1 -->
-          <div class="col-md-3">
+          <!-- Tabel Kendaraan DB (Kiri) -->
+          <div class="col-md-6">
             <div class="table-card small-table">
-              <div class="table-title">Title</div>
+              <div class="table-title">Data Kendaraan Database</div>
               <div class="table-responsive">
                 <table class="table table-bordered dashboard-table">
                   <thead class="table-header">
                     <tr>
                       <th>No.</th>
-                      <th>Column 1</th>
-                      <th>Column 2</th>
-                      <th>Column 3</th>
-                      <th>etc...</th>
+                      <th>Plat Nomor</th>
+                      <th>Kecepatan</th>
+                      <th>Waktu</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for i in range(1, 4) %}
+                    {% for item in data_db %}
                     <tr>
-                      <td>{{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>etc...</td>
+                      <td>{{ loop.index }}</td>
+                      <td>{{ item.VehicleNumber }}</td>
+                      <td>{{ item.Speed }} km/h</td>
+                      <td>Recent</td>
+                      <td>Online</td>
                     </tr>
                     {% endfor %}
+                    {% if data_db|length < 3 %}
+                      {% for i in range(data_db|length + 1, 4) %}
+                      <tr>
+                        <td>{{ i }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                      {% endfor %}
+                    {% endif %}
                   </tbody>
                 </table>
               </div>
-              <div class="view-more">View More...</div>
+              <div class="view-more">
+                <a href="/kendaraan-db" style="text-decoration: none; color: inherit;">View More...</a>
+              </div>
             </div>
           </div>
 
-          <!-- Tabel 2 -->
-          <div class="col-md-3">
+          <!-- Tabel Historical (Kanan) -->
+          <div class="col-md-6">
             <div class="table-card small-table">
-              <div class="table-title">Title</div>
+              <div class="table-title">Data Historical</div>
               <div class="table-responsive">
                 <table class="table table-bordered dashboard-table">
                   <thead class="table-header">
                     <tr>
                       <th>No.</th>
-                      <th>Column 1</th>
-                      <th>Column 2</th>
-                      <th>Column 3</th>
-                      <th>etc...</th>
+                      <th>Tanggal</th>
+                      <th>Engine Status</th>
+                      <th>Location</th>
+                      <th>Duration</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {% for i in range(1, 4) %}
+                    {% for item in data_history %}
                     <tr>
-                      <td>{{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>etc...</td>
+                      <td>{{ loop.index }}</td>
+                      <td>{{ item.datetime }}</td>
+                      <td>{{ item.engine }}</td>
+                      <td>Jakarta</td>
+                      <td>2h 30m</td>
                     </tr>
                     {% endfor %}
+                    {% if data_history|length < 3 %}
+                      {% for i in range(data_history|length + 1, 4) %}
+                      <tr>
+                        <td>{{ i }}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                      {% endfor %}
+                    {% endif %}
                   </tbody>
                 </table>
               </div>
-              <div class="view-more">View More...</div>
-            </div>
-          </div>
-
-          <!-- Tabel 3 -->
-          <div class="col-md-3">
-            <div class="table-card small-table">
-              <div class="table-title">Title</div>
-              <div class="table-responsive">
-                <table class="table table-bordered dashboard-table">
-                  <thead class="table-header">
-                    <tr>
-                      <th>No.</th>
-                      <th>Column 1</th>
-                      <th>Column 2</th>
-                      <th>Column 3</th>
-                      <th>etc...</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for i in range(1, 4) %}
-                    <tr>
-                      <td>{{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>etc...</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
+              <div class="view-more">
+                <a href="/historical" style="text-decoration: none; color: inherit;">View More...</a>
               </div>
-              <div class="view-more">View More...</div>
-            </div>
-          </div>
-
-          <!-- Tabel 4 -->
-          <div class="col-md-3">
-            <div class="table-card small-table">
-              <div class="table-title">Title</div>
-              <div class="table-responsive">
-                <table class="table table-bordered dashboard-table">
-                  <thead class="table-header">
-                    <tr>
-                      <th>No.</th>
-                      <th>Column 1</th>
-                      <th>Column 2</th>
-                      <th>Column 3</th>
-                      <th>etc...</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for i in range(1, 4) %}
-                    <tr>
-                      <td>{{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>Row {{ i }}</td>
-                      <td>etc...</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-              <div class="view-more">View More...</div>
             </div>
           </div>
         </div>
@@ -218,6 +190,21 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleIcon.textContent = '❯';
     } else {
       toggleIcon.textContent = '❮';
+    }
+  });
+
+  // Handle image upload
+  document.getElementById('imageUpload').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // You can handle the uploaded image here
+        console.log('Image uploaded:', file.name);
+        alert('Image uploaded: ' + file.name);
+        // You can send this to your server or display it somewhere
+      };
+      reader.readAsDataURL(file);
     }
   });
 });
