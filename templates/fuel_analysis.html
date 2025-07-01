@@ -56,7 +56,7 @@
       <div class="card text-center">
         <div class="card-body">
           <h5 class="card-title text-primary">Total Jarak</h5>
-          <h3>{{ "%.2f"|format(fuel_summary.total_distance) }} km</h3>
+          <h3>{{ "%.2f".format(fuel_summary.total_distance) }} km</h3>
         </div>
       </div>
     </div>
@@ -64,7 +64,7 @@
       <div class="card text-center">
         <div class="card-body">
           <h5 class="card-title text-success">Total BBM</h5>
-          <h3>{{ "%.2f"|format(fuel_summary.total_fuel) }} L</h3>
+          <h3>{{ "%.2f".format(fuel_summary.total_fuel) }} L</h3>
         </div>
       </div>
     </div>
@@ -72,7 +72,7 @@
       <div class="card text-center">
         <div class="card-body">
           <h5 class="card-title text-warning">Rata-rata Efisiensi</h5>
-          <h3>{{ "%.2f"|format(fuel_summary.avg_efficiency) }} km/L</h3>
+          <h3>{{ "%.2f".format(fuel_summary.avg_efficiency) }} km/L</h3>
         </div>
       </div>
     </div>
@@ -80,7 +80,7 @@
       <div class="card text-center">
         <div class="card-body">
           <h5 class="card-title text-danger">Estimasi Biaya</h5>
-          <h3>Rp {{ "{:,.0f}"|format(fuel_summary.estimated_cost) }}</h3>
+          <h3>Rp {{ "{:,.0f}".format(fuel_summary.estimated_cost) }}</h3>
           <small class="text-muted">@Rp 10,000/L</small>
         </div>
       </div>
@@ -127,10 +127,10 @@
                 {% for vehicle in vehicle_analysis %}
                 <tr>
                   <td>{{ vehicle.plate }}</td>
-                  <td>{{ "%.2f"|format(vehicle.distance) }}</td>
-                  <td>{{ "%.2f"|format(vehicle.fuel) }}</td>
-                  <td>{{ "%.2f"|format(vehicle.efficiency) }}</td>
-                  <td>Rp {{ "{:,.0f}"|format(vehicle.cost) }}</td>
+                  <td>{{ "%.2f".format(vehicle.distance) }}</td>
+                  <td>{{ "%.2f".format(vehicle.fuel) }}</td>
+                  <td>{{ "%.2f".format(vehicle.efficiency) }}</td>
+                  <td>Rp {{ "{:,.0f}".format(vehicle.cost) }}</td>
                   <td>
                     {% if vehicle.efficiency > 12 %}
                     <span class="badge bg-success">Efisien</span>
@@ -176,8 +176,8 @@
                 <tr>
                   <td>{{ record.datetime }}</td>
                   <td>{{ record.plate }}</td>
-                  <td>{{ "%.2f"|format(record.distance) }}</td>
-                  <td>{{ "%.2f"|format(record.fuel) }}</td>
+                  <td>{{ "%.2f".format(record.distance) }}</td>
+                  <td>{{ "%.2f".format(record.fuel) }}</td>
                   <td>{{ record.speed }} km/h</td>
                   <td>{{ record.engine }}</td>
                 </tr>

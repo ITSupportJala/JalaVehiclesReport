@@ -383,44 +383,57 @@ def fuel_analysis():
         daily_data = {}
         detailed_list = []
         
+        # Sort records by vehicle and datetime to ensure proper odometer sequence
+        records_by_vehicle = {}
         for record in records:
             vehicle = record['VehicleNumber']
-            date = record['DatetimeUTC'][:10]  # Extract date part
+            if vehicle not in records_by_vehicle:
+                records_by_vehicle[vehicle] = []
+            records_by_vehicle[vehicle].append(record)
+        
+        # Sort each vehicle's records by datetime
+        for vehicle in records_by_vehicle:
+            records_by_vehicle[vehicle].sort(key=lambda x: x['DatetimeUTC'])
+        
+        # Process each vehicle's records
+        for vehicle, vehicle_records in records_by_vehicle.items():
+            vehicle_data[vehicle] = {
+                'total_distance': 0,
+                'total_fuel': 0,
+            }
             
-            if vehicle not in vehicle_data:
-                vehicle_data[vehicle] = {
-                    'prev_odometer': None,
-                    'total_distance': 0,
-                    'total_fuel': 0,
-                    'records': []
-                }
-            
-            if date not in daily_data:
-                daily_data[date] = {'distance': 0, 'fuel': 0}
-            
-            current_odo = record['Odometer']
-            prev_odo = vehicle_data[vehicle]['prev_odometer']
-            
-            if prev_odo is not None and current_odo > prev_odo:
-                distance_m = current_odo - prev_odo
-                distance_km = distance_m / 1000
-                fuel_consumed = distance_km / efficiency
+            prev_odo = None
+            for record in vehicle_records:
+                date = record['DatetimeUTC'][:10]
+                current_odo = record['Odometer']
                 
-                vehicle_data[vehicle]['total_distance'] += distance_km
-                vehicle_data[vehicle]['total_fuel'] += fuel_consumed
-                daily_data[date]['distance'] += distance_km
-                daily_data[date]['fuel'] += fuel_consumed
+                if date not in daily_data:
+                    daily_data[date] = {'distance': 0, 'fuel': 0}
                 
-                detailed_list.append({
-                    'datetime': record['DatetimeUTC'],
-                    'plate': vehicle,
-                    'distance': distance_km,
-                    'fuel': fuel_consumed,
-                    'speed': record['Speed'],
-                    'engine': record['Engine']
-                })
-            
-            vehicle_data[vehicle]['prev_odometer'] = current_odo
+                # Calculate distance and fuel only if we have a previous odometer reading
+                if prev_odo is not None and current_odo is not None and current_odo > prev_odo:
+                    distance_m = current_odo - prev_odo
+                    distance_km = distance_m / 1000
+                    
+                    # Only count if distance is reasonable (less than 500km between readings)
+                    if distance_km > 0 and distance_km < 500:
+                        fuel_consumed = distance_km / efficiency
+                        
+                        vehicle_data[vehicle]['total_distance'] += distance_km
+                        vehicle_data[vehicle]['total_fuel'] += fuel_consumed
+                        daily_data[date]['distance'] += distance_km
+                        daily_data[date]['fuel'] += fuel_consumed
+                        
+                        detailed_list.append({
+                            'datetime': record['DatetimeUTC'],
+                            'plate': vehicle,
+                            'distance': round(distance_km, 2),
+                            'fuel': round(fuel_consumed, 2),
+                            'speed': record['Speed'] or 0,
+                            'engine': record['Engine']
+                        })
+                
+                prev_odo = current_odo
         
         # Calculate summary
         total_distance = sum(v['total_distance'] for v in vehicle_data.values())
