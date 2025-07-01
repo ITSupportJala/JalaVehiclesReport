@@ -286,18 +286,44 @@ def kendaraan_db():
     cursor.close()
     conn.close()
 
-    # Hitung FuelUsed (BBM)
+    # Hitung FuelUsed (BBM) per kendaraan secara terpisah
     efficiency_km_per_liter = 10
-    previous_odom = None
     rows = [dict(r) for r in rows]  # konversi Row ke dict
+    
+    # Group by vehicle to calculate fuel consumption properly
+    vehicle_groups = {}
     for row in rows:
-        if previous_odom is not None and row['Odometer'] is not None and row['Engine'] == 'ON':
-            delta_meter = max(0, row['Odometer'] - previous_odom)
-            delta_km = delta_meter / 1000
-            row['FuelUsed'] = round(delta_km / efficiency_km_per_liter, 2)
-        else:
-            row['FuelUsed'] = 0.0
-        previous_odom = row['Odometer']
+        vehicle = row['VehicleNumber']
+        if vehicle not in vehicle_groups:
+            vehicle_groups[vehicle] = []
+        vehicle_groups[vehicle].append(row)
+    
+    # Calculate fuel consumption for each vehicle separately
+    for vehicle, vehicle_rows in vehicle_groups.items():
+        # Sort by datetime to ensure proper sequence
+        vehicle_rows.sort(key=lambda x: x['DatetimeUTC'] or '')
+        
+        previous_odom = None
+        for row in vehicle_rows:
+            if (previous_odom is not None and 
+                row['Odometer'] is not None and 
+                row['Engine'] == 'ON' and
+                row['Odometer'] > previous_odom):
+                
+                delta_meter = row['Odometer'] - previous_odom
+                delta_km = delta_meter / 1000
+                
+                # Only calculate if distance is reasonable (0.1km to 100km between readings)
+                if 0.1 <= delta_km <= 100:
+                    row['FuelUsed'] = round(delta_km / efficiency_km_per_liter, 2)
+                else:
+                    row['FuelUsed'] = 0.0
+            else:
+                row['FuelUsed'] = 0.0
+                
+            # Update previous odometer only if current reading is valid
+            if row['Odometer'] is not None:
+                previous_odom = row['Odometer']
 
     return render_template("kendaraan_db.html", rows=rows, all_plates=all_plates)
 
