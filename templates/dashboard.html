@@ -14,8 +14,8 @@
         <span id="toggleIcon">❮</span>
       </button>
       <div class="logo mb-3">
-        <img src="{{ url_for('static', filename='jala-white.png') }}" alt="JALA GPS.id">
-        <img src="{{ url_for('static', filename='GPS White.webp') }}" alt="JALA GPS.id">
+        <img src="{{ url_for('static', filename='Jala White.png') }}" alt="JALA GPS.id">
+        <img src="{{ url_for('static', filename='GPS White.png') }}" alt="JALA GPS.id">
       </div>
       <ul class="nav flex-column w-100 px-3">
         <li class="nav-item">
@@ -55,7 +55,6 @@
                   <th>No.</th>
                   <th>IMEI</th>
                   <th>Plat Nomor</th>
-                  <th>Mileage (7 hari)</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -65,7 +64,6 @@
                   <td>{{ loop.index }}</td>
                   <td>{{ item.imei }}</td>
                   <td>{{ item.plate }}</td>
-                  <td>{{ item.mileage }} km</td>
                   <td>Active</td>
                 </tr>
                 {% endfor %}
@@ -73,7 +71,6 @@
                   {% for i in range(data_jala|length + 1, 5) %}
                   <tr>
                     <td>{{ i }}</td>
-                    <td>-</td>
                     <td>-</td>
                     <td>-</td>
                     <td>-</td>

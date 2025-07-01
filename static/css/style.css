@@ -1,11 +1,11 @@
 body {
-  font-family: 'Segoe UI', sans-serif;
+  font-family: 'Lato', bold;
   background-color: #ffffff;
   margin: 0;
 }
 
 .sidebar {
-  background-color: #007BFF; /* Warna biru sesuai desain */
+  background-color: #0084f3; /* Warna biru sesuai desain */
   min-height: 100vh;
   padding-top: 20px;
   color: white;
@@ -74,7 +74,6 @@ body {
   font-weight: bold;
   color: white;
 }
-
 
 .nav-link {
   color: white !important;  /* putih */

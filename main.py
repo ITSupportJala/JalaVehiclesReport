@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template
-import mysql.connector
+import sqlite3
 import requests
 import time
 import os
@@ -8,27 +8,54 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = Flask(__name__)
+DB_PATH = 'gps_data.db'
 
-# Konfigurasi database MySQL (untuk push dari GPS.id)
-db_config = {
-    'host': os.getenv('DB_HOST'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'database': os.getenv('DB_NAME')
-}
+# Buat tabel gps_data kalau belum ada
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS gps_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            VehicleId TEXT,
+            VehicleNumber TEXT,
+            DatetimeUTC TEXT,
+            GpsLocation TEXT,
+            Lon REAL,
+            Lat REAL,
+            Speed REAL,
+            Direction TEXT,
+            Engine TEXT,
+            Odometer REAL,
+            Car_Status TEXT,
+            VehicleType TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-# Konfigurasi akun GPS.id
+
+init_db()
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+
+DB_PATH = 'gps_data.db'
+
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
 gps_config = {
     'username': os.getenv('GPS_USERNAME'),
     'password': os.getenv('GPS_PASSWORD')
 }
 
-# Token cache untuk GPS.id API
 _token_cache = {"token": None, "expires_at": 0}
 
 
-# Fungsi mendapatkan token GPS.id
 def get_token():
     now = time.time()
     if _token_cache["token"] and now < _token_cache["expires_at"]:
@@ -52,7 +79,6 @@ def get_token():
         return None
 
 
-# Ambil daftar kendaraan dari GPS.id
 def get_vehicle_data(token):
     try:
         url = "https://portal.gps.id/backend/seen/public/vehicle"
@@ -74,17 +100,14 @@ def get_history_data(token, imei, start_date, end_date, page=1, per_page=100):
         "page": page,
         "per_page": per_page
     }
-
     try:
         res = requests.get(url, headers=headers, params=params)
         res.raise_for_status()
         return res.json().get("message", {}).get("data", [])
-    except Exception as e:
-        print("Error get_history_data:", e)
+    except:
         return []
 
 
-# Ambil data mileage penuh dalam rentang waktu
 def get_mileage_data(token, imei, start_date, end_date):
     url = "https://portal.gps.id/backend/seen/public/data/mileage"
     headers = {
@@ -118,10 +141,6 @@ def get_full_mileage_data(token, imei, start_date, end_date):
         return []
 
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
-
-
-# Dashboard utama
 @app.route('/')
 def dashboard():
     token = get_token()
@@ -135,15 +154,13 @@ def dashboard():
         "mileage": 0
     } for v in vehicles]
 
-    # Ambil data DB terakhir 5
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute(
+    conn = get_db_connection()
+    cursor = conn.execute(
         "SELECT VehicleNumber, Speed FROM gps_data ORDER BY DatetimeUTC DESC LIMIT 5"
     )
     data_db = cursor.fetchall()
+    conn.close()
 
-    # Ambil data historis sample (optional)
     data_history = [{
         "datetime": "2024-06-01 12:00",
         "engine": "ON"
@@ -161,45 +178,49 @@ def dashboard():
                            data_history=data_history)
 
 
-# endpoint untuk menerima data dari GPS.id
 @app.route('/api/gps-data', methods=['POST'])
 def receive_gps_data():
     data = request.get_json()
     try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+        conn = get_db_connection()
         query = """
             INSERT INTO gps_data (
                 VehicleId, VehicleNumber, DatetimeUTC, GpsLocation,
                 Lon, Lat, Speed, Direction, Engine,
                 Odometer, Car_Status, VehicleType
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
-        values = (
-            data.get("VehicleId"),
-            data.get("VehicleNumber"),
-            data.get("DatetimeUTC"),
-            data.get("GpsLocation"),
-            data.get("Lon"),
-            data.get("Lat"),
-            data.get("Speed"),
-            data.get("Direction"),
-            data.get("Engine"),
-            data.get("Odometer"),
-            data.get("Car_Status"),
-            data.get("VehicleType"),
-        )
-        cursor.execute(query, values)
+        values = (data.get("VehicleId"), data.get("VehicleNumber"),
+                  data.get("DatetimeUTC"), data.get("GpsLocation"),
+                  data.get("Lon"), data.get("Lat"), data.get("Speed"),
+                  data.get("Direction"), data.get("Engine"),
+                  data.get("Odometer"), data.get("Car_Status"),
+                  data.get("VehicleType"))
+        conn.execute(query, values)
         conn.commit()
-        cursor.close()
         conn.close()
         return jsonify({"message": "Data berhasil disimpan"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-# Endpoint untuk menampilkan data kendaraan dari GPS.id
+@app.route('/maps')
+def map_view():
+    try:
+        conn = get_db_connection()
+        cursor = conn.execute("""
+            SELECT VehicleNumber, Lat, Lon, DatetimeUTC FROM gps_data
+            WHERE Lat IS NOT NULL AND Lon IS NOT NULL
+            ORDER BY id DESC LIMIT 50
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return render_template("map_view.html", rows=rows)
+    except Exception as e:
+        return f"<h3>Error loading map: {str(e)}</h3>"
+
+
 @app.route('/kendaraan-jala')
 def kendaraan_jala():
     token = get_token()
@@ -230,48 +251,28 @@ def kendaraan_jala():
 
     return render_template("kendaraan_jala.html", data=data)
 
-
-# Endpoint untuk menampilkan peta kendaraan
-@app.route('/maps')
-def map_view():
-    try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute(
-            "SELECT VehicleNumber, Lat, Lon, DatetimeUTC FROM gps_data WHERE Lat IS NOT NULL AND Lon IS NOT NULL ORDER BY id DESC LIMIT 50"
-        )
-        rows = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return render_template("map_view.html", rows=rows)
-    except Exception as e:
-        return f"<h3>Error loading map: {str(e)}</h3>"
-
-
 @app.route('/kendaraan-db', methods=['GET', 'POST'])
 def kendaraan_db():
-    search_plate = request.form.get(
-        'plate') if request.method == 'POST' else ''
-    start_time = request.form.get(
-        'start_time') if request.method == 'POST' else ''
+    search_plate = request.form.get('plate') if request.method == 'POST' else ''
+    start_time = request.form.get('start_time') if request.method == 'POST' else ''
     end_time = request.form.get('end_time') if request.method == 'POST' else ''
-    sort_order = request.form.get(
-        'sort_order', 'DESC') if request.method == 'POST' else 'DESC'
+    sort_order = request.form.get('sort_order', 'DESC') if request.method == 'POST' else 'DESC'
 
-    conn = mysql.connector.connect(**db_config)
-    cursor = conn.cursor(dictionary=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # agar row bisa diakses seperti dictionary
+    cursor = conn.cursor()
 
     query = "SELECT * FROM gps_data WHERE 1=1"
     params = []
 
     if search_plate:
-        query += " AND VehicleNumber = %s"
+        query += " AND VehicleNumber = ?"
         params.append(search_plate)
     if start_time:
-        query += " AND DatetimeUTC >= %s"
+        query += " AND DatetimeUTC >= ?"
         params.append(start_time)
     if end_time:
-        query += " AND DatetimeUTC <= %s"
+        query += " AND DatetimeUTC <= ?"
         params.append(end_time)
 
     query += f" ORDER BY DatetimeUTC {sort_order} LIMIT 100"
@@ -279,39 +280,33 @@ def kendaraan_db():
     cursor.execute(query, params)
     rows = cursor.fetchall()
 
-    cursor.execute(
-        "SELECT DISTINCT VehicleNumber FROM gps_data ORDER BY VehicleNumber")
+    cursor.execute("SELECT DISTINCT VehicleNumber FROM gps_data ORDER BY VehicleNumber")
     all_plates = [row['VehicleNumber'] for row in cursor.fetchall()]
 
     cursor.close()
     conn.close()
 
-    # Perhitungan BBM berdasarkan selisih mileage
+    # Hitung FuelUsed (BBM)
     efficiency_km_per_liter = 10
     previous_odom = None
+    rows = [dict(r) for r in rows]  # konversi Row ke dict
     for row in rows:
-        if previous_odom is not None and row['Odometer'] is not None and row[
-                'Engine'] == 'ON':
+        if previous_odom is not None and row['Odometer'] is not None and row['Engine'] == 'ON':
             delta_meter = max(0, row['Odometer'] - previous_odom)
             delta_km = delta_meter / 1000
             row['FuelUsed'] = round(delta_km / efficiency_km_per_liter, 2)
         else:
             row['FuelUsed'] = 0.0
-
         previous_odom = row['Odometer']
 
-    return render_template("kendaraan_db.html",
-                           rows=rows,
-                           all_plates=all_plates)
+    return render_template("kendaraan_db.html", rows=rows, all_plates=all_plates)
 
 
 @app.route('/historical', methods=['GET', 'POST'])
 def historical_data():
-
     data = []
     error = None
     token = get_token()
-    imei_list = []
 
     if not token:
         return "Gagal mendapatkan token dari GPS.id", 500
@@ -340,6 +335,5 @@ def historical_data():
                            error=error)
 
 
-# Jalankan aplikasi
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
