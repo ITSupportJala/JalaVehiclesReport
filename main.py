@@ -335,5 +335,144 @@ def historical_data():
                            error=error)
 
 
+@app.route('/fuel-analysis', methods=['GET', 'POST'])
+def fuel_analysis():
+    conn = get_db_connection()
+    
+    # Get all plates for dropdown
+    cursor = conn.execute("SELECT DISTINCT VehicleNumber FROM gps_data ORDER BY VehicleNumber")
+    all_plates = [row['VehicleNumber'] for row in cursor.fetchall()]
+    
+    fuel_summary = None
+    daily_consumption = None
+    vehicle_analysis = None
+    detailed_records = None
+    
+    if request.method == 'POST':
+        plate = request.form.get('plate')
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        efficiency = float(request.form.get('efficiency', 10))
+        fuel_price = 10000  # Rp 10,000 per liter
+        
+        # Build query
+        query = """
+            SELECT VehicleNumber, DatetimeUTC, Odometer, Speed, Engine, Lat, Lon
+            FROM gps_data 
+            WHERE Engine = 'ON' AND Odometer IS NOT NULL
+        """
+        params = []
+        
+        if plate:
+            query += " AND VehicleNumber = ?"
+            params.append(plate)
+        if start_date:
+            query += " AND DatetimeUTC >= ?"
+            params.append(start_date + " 00:00:00")
+        if end_date:
+            query += " AND DatetimeUTC <= ?"
+            params.append(end_date + " 23:59:59")
+            
+        query += " ORDER BY VehicleNumber, DatetimeUTC"
+        
+        cursor = conn.execute(query, params)
+        records = cursor.fetchall()
+        
+        # Calculate fuel consumption
+        vehicle_data = {}
+        daily_data = {}
+        detailed_list = []
+        
+        for record in records:
+            vehicle = record['VehicleNumber']
+            date = record['DatetimeUTC'][:10]  # Extract date part
+            
+            if vehicle not in vehicle_data:
+                vehicle_data[vehicle] = {
+                    'prev_odometer': None,
+                    'total_distance': 0,
+                    'total_fuel': 0,
+                    'records': []
+                }
+            
+            if date not in daily_data:
+                daily_data[date] = {'distance': 0, 'fuel': 0}
+            
+            current_odo = record['Odometer']
+            prev_odo = vehicle_data[vehicle]['prev_odometer']
+            
+            if prev_odo is not None and current_odo > prev_odo:
+                distance_m = current_odo - prev_odo
+                distance_km = distance_m / 1000
+                fuel_consumed = distance_km / efficiency
+                
+                vehicle_data[vehicle]['total_distance'] += distance_km
+                vehicle_data[vehicle]['total_fuel'] += fuel_consumed
+                daily_data[date]['distance'] += distance_km
+                daily_data[date]['fuel'] += fuel_consumed
+                
+                detailed_list.append({
+                    'datetime': record['DatetimeUTC'],
+                    'plate': vehicle,
+                    'distance': distance_km,
+                    'fuel': fuel_consumed,
+                    'speed': record['Speed'],
+                    'engine': record['Engine']
+                })
+            
+            vehicle_data[vehicle]['prev_odometer'] = current_odo
+        
+        # Calculate summary
+        total_distance = sum(v['total_distance'] for v in vehicle_data.values())
+        total_fuel = sum(v['total_fuel'] for v in vehicle_data.values())
+        avg_efficiency = total_distance / total_fuel if total_fuel > 0 else 0
+        estimated_cost = total_fuel * fuel_price
+        
+        fuel_summary = {
+            'total_distance': total_distance,
+            'total_fuel': total_fuel,
+            'avg_efficiency': avg_efficiency,
+            'estimated_cost': estimated_cost
+        }
+        
+        # Prepare daily consumption for chart
+        if daily_data:
+            sorted_dates = sorted(daily_data.keys())
+            daily_consumption = {
+                'dates': sorted_dates,
+                'distance': [daily_data[d]['distance'] for d in sorted_dates],
+                'fuel': [daily_data[d]['fuel'] for d in sorted_dates]
+            }
+        
+        # Prepare vehicle analysis
+        vehicle_analysis = []
+        for vehicle, data in vehicle_data.items():
+            if data['total_distance'] > 0:
+                eff = data['total_distance'] / data['total_fuel'] if data['total_fuel'] > 0 else 0
+                cost = data['total_fuel'] * fuel_price
+                vehicle_analysis.append({
+                    'plate': vehicle,
+                    'distance': data['total_distance'],
+                    'fuel': data['total_fuel'],
+                    'efficiency': eff,
+                    'cost': cost
+                })
+        
+        # Sort by efficiency descending
+        vehicle_analysis.sort(key=lambda x: x['efficiency'], reverse=True)
+        
+        # Limit detailed records to last 100
+        detailed_records = detailed_list[-100:]
+    
+    conn.close()
+    
+    return render_template("fuel_analysis.html",
+                         all_plates=all_plates,
+                         fuel_summary=fuel_summary,
+                         daily_consumption=daily_consumption,
+                         vehicle_analysis=vehicle_analysis,
+                         detailed_records=detailed_records)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

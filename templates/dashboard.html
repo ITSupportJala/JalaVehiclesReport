@@ -36,6 +36,12 @@
             <span class="nav-text">History</span>
           </a>
         </li>
+              <li class="nav-item">
+                <a href="/fuel-analysis" class="nav-link text-white">
+                  <img src="{{ url_for('static', filename='dashboard-icon.png') }}" alt="Fuel Analysis" class="nav-icon">
+                  <span class="nav-text">Fuel Analysis</span>
+                </a>
+              </li>
       </ul>
     </nav>
 
@@ -188,11 +194,11 @@ document.addEventListener('DOMContentLoaded', function() {
   const mainContent = document.getElementById('mainContent');
   const toggleBtn = document.getElementById('toggleSidebar');
   const toggleIcon = document.getElementById('toggleIcon');
-  
+
   toggleBtn.addEventListener('click', function() {
     sidebar.classList.toggle('collapsed');
     mainContent.classList.toggle('expanded');
-    
+
     if (sidebar.classList.contains('collapsed')) {
       toggleIcon.textContent = '❯';
     } else {
@@ -200,7 +206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 
-  
+
 });
 </script>
 </body>

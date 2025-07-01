@@ -1,0 +1,249 @@
+
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Analisis Konsumsi Bahan Bakar</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-light">
+<div class="container mt-4">
+  <h2 class="mb-4">⛽ Analisis Konsumsi Bahan Bakar</h2>
+  
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-primary text-white">
+          <h5>Filter Analisis</h5>
+        </div>
+        <div class="card-body">
+          <form method="POST" class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Plat Nomor</label>
+              <select class="form-select" name="plate">
+                <option value="">Semua Kendaraan</option>
+                {% for p in all_plates %}
+                <option value="{{ p }}" {% if p == request.form.get('plate') %}selected{% endif %}>{{ p }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Mulai</label>
+              <input type="date" name="start_date" class="form-control" value="{{ request.form.get('start_date', '') }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Tanggal Akhir</label>
+              <input type="date" name="end_date" class="form-control" value="{{ request.form.get('end_date', '') }}">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Efisiensi (km/L)</label>
+              <input type="number" name="efficiency" class="form-control" step="0.1" value="{{ request.form.get('efficiency', '10') }}" placeholder="10">
+            </div>
+            <div class="col-md-12">
+              <button type="submit" class="btn btn-primary">🔍 Analisis</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% if fuel_summary %}
+  <div class="row mb-4">
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title text-primary">Total Jarak</h5>
+          <h3>{{ "%.2f"|format(fuel_summary.total_distance) }} km</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title text-success">Total BBM</h5>
+          <h3>{{ "%.2f"|format(fuel_summary.total_fuel) }} L</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title text-warning">Rata-rata Efisiensi</h5>
+          <h3>{{ "%.2f"|format(fuel_summary.avg_efficiency) }} km/L</h3>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card text-center">
+        <div class="card-body">
+          <h5 class="card-title text-danger">Estimasi Biaya</h5>
+          <h3>Rp {{ "{:,.0f}"|format(fuel_summary.estimated_cost) }}</h3>
+          <small class="text-muted">@Rp 10,000/L</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if daily_consumption %}
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-info text-white">
+          <h5>Grafik Konsumsi Harian</h5>
+        </div>
+        <div class="card-body">
+          <canvas id="fuelChart" height="100"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if vehicle_analysis %}
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-secondary text-white">
+          <h5>Analisis per Kendaraan</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead class="table-dark">
+                <tr>
+                  <th>Plat Nomor</th>
+                  <th>Total Jarak (km)</th>
+                  <th>Total BBM (L)</th>
+                  <th>Efisiensi (km/L)</th>
+                  <th>Estimasi Biaya</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for vehicle in vehicle_analysis %}
+                <tr>
+                  <td>{{ vehicle.plate }}</td>
+                  <td>{{ "%.2f"|format(vehicle.distance) }}</td>
+                  <td>{{ "%.2f"|format(vehicle.fuel) }}</td>
+                  <td>{{ "%.2f"|format(vehicle.efficiency) }}</td>
+                  <td>Rp {{ "{:,.0f}"|format(vehicle.cost) }}</td>
+                  <td>
+                    {% if vehicle.efficiency > 12 %}
+                    <span class="badge bg-success">Efisien</span>
+                    {% elif vehicle.efficiency > 8 %}
+                    <span class="badge bg-warning">Normal</span>
+                    {% else %}
+                    <span class="badge bg-danger">Boros</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if detailed_records %}
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          <h5>Detail Konsumsi BBM</h5>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-sm">
+              <thead class="table-light">
+                <tr>
+                  <th>Waktu</th>
+                  <th>Plat</th>
+                  <th>Jarak (km)</th>
+                  <th>BBM (L)</th>
+                  <th>Kecepatan</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for record in detailed_records %}
+                <tr>
+                  <td>{{ record.datetime }}</td>
+                  <td>{{ record.plate }}</td>
+                  <td>{{ "%.2f"|format(record.distance) }}</td>
+                  <td>{{ "%.2f"|format(record.fuel) }}</td>
+                  <td>{{ record.speed }} km/h</td>
+                  <td>{{ record.engine }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="/" class="btn btn-secondary mt-3">&larr; Kembali ke Dashboard</a>
+</div>
+
+{% if daily_consumption %}
+<script>
+const ctx = document.getElementById('fuelChart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: {{ daily_consumption.dates | tojson }},
+        datasets: [{
+            label: 'Konsumsi BBM (L)',
+            data: {{ daily_consumption.fuel | tojson }},
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+        }, {
+            label: 'Jarak Tempuh (km)',
+            data: {{ daily_consumption.distance | tojson }},
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            yAxisID: 'y1',
+            tension: 0.1
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                type: 'linear',
+                display: true,
+                position: 'left',
+                title: {
+                    display: true,
+                    text: 'BBM (Liter)'
+                }
+            },
+            y1: {
+                type: 'linear',
+                display: true,
+                position: 'right',
+                title: {
+                    display: true,
+                    text: 'Jarak (km)'
+                },
+                grid: {
+                    drawOnChartArea: false,
+                }
+            }
+        }
+    }
+});
+</script>
+{% endif %}
+</body>
+</html>
