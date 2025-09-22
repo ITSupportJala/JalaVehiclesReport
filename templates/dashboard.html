@@ -2,212 +2,184 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Dashboard GPS</title>
+  <title>Pusat Pemantauan</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <div class="container-fluid">
   <div class="row">
-    <nav id="sidebar" class="sidebar d-flex flex-column align-items-center">
-      <button id="toggleSidebar" class="toggle-btn">
-        <span id="toggleIcon">❮</span>
-      </button>
-      <div class="logo mb-3">
-        <img src="{{ url_for('static', filename='Jala White.png') }}" alt="JALA GPS.id">
-        <img src="{{ url_for('static', filename='GPS White.png') }}" alt="JALA GPS.id">
-      </div>
-      <ul class="nav flex-column w-100 px-3">
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/">
-            <img src="{{ url_for('static', filename='dashboard-icon.png') }}" alt="Dashboard" class="nav-icon">
-            <span class="nav-text">Dashboard</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/maps">
-            <img src="{{ url_for('static', filename='maps-icon.png') }}" alt="Maps" class="nav-icon">
-            <span class="nav-text">Maps</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/historical">
-            <img src="{{ url_for('static', filename='history-icon.png') }}" alt="History" class="nav-icon">
-            <span class="nav-text">History</span>
-          </a>
-        </li>
-              <li class="nav-item">
-                <a href="/fuel-analysis" class="nav-link text-white">
-                  <img src="{{ url_for('static', filename='dashboard-icon.png') }}" alt="Fuel Analysis" class="nav-icon">
-                  <span class="nav-text">Fuel Analysis</span>
-                </a>
-              </li>
-      </ul>
-    </nav>
+    {% include 'sidebar.html' %}
 
-    <main id="mainContent" class="main-content py-4 px-5">
-      <div class="dashboard-header">
-        Dashboard
-      </div>
+    <!-- ================= Main Content ================= -->
+    <main id="mainContent" class="main-content py-2 px-3">
+      <div class="container-fluid mt-4">
+        
+        <!-- Header -->
+        <h1 class="dashboard-header">Pusat Pemantauan</h1>
+        <p class="text-muted">
+          Ringkasan armada kendaraan per tanggal: {{ start_time }} s/d {{ end_time }}
+        </p>
 
-      <div class="card-section">
-        <!-- Tabel Kendaraan Jala (Full Width) -->
-        <div class="table-card full-width-table">
-          <div class="table-title">Data Kendaraan GPS.id</div>
-          <div class="table-responsive">
-            <table class="table table-bordered dashboard-table">
-              <thead class="table-header">
-                <tr>
-                  <th>No.</th>
-                  <th>IMEI</th>
-                  <th>Plat Nomor</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for item in data_jala %}
-                <tr>
-                  <td>{{ loop.index }}</td>
-                  <td>{{ item.imei }}</td>
-                  <td>{{ item.plate }}</td>
-                  <td>Active</td>
-                </tr>
-                {% endfor %}
-                {% if data_jala|length < 4 %}
-                  {% for i in range(data_jala|length + 1, 5) %}
-                  <tr>
-                    <td>{{ i }}</td>
-                    <td>-</td>
-                    <td>-</td>
-                    <td>-</td>
-                  </tr>
-                  {% endfor %}
-                {% endif %}
-              </tbody>
-            </table>
+        <!-- 🔍 Filter -->
+        <form method="get" class="row g-3 mb-4">
+          <div class="col-md-3">
+            <select name="plate" class="form-select">
+              <option value="">-- Semua Kendaraan --</option>
+              {% for plate in all_plates %}
+                <option value="{{ plate }}" {% if search_plate == plate %}selected{% endif %}>
+                  {{ plate }}
+                </option>
+              {% endfor %}
+            </select>
           </div>
-          <div class="view-more">
-            <a href="/kendaraan-jala" style="text-decoration: none; color: inherit;">View More...</a>
+          <div class="col-md-3">
+            <input type="date" name="start_time" value="{{ start_time }}" class="form-control">
           </div>
-        </div>
+          <div class="col-md-3">
+            <input type="date" name="end_time" value="{{ end_time }}" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">Terapkan</button>
+          </div>
+        </form>
 
-        <!-- Row dengan 2 tabel -->
-        <div class="row mt-3">
-          <!-- Tabel Kendaraan DB (Kiri) -->
-          <div class="col-md-6">
-            <div class="table-card small-table">
-              <div class="table-title">Data Kendaraan Database</div>
-              <div class="table-responsive">
-                <table class="table table-bordered dashboard-table">
-                  <thead class="table-header">
-                    <tr>
-                      <th>No.</th>
-                      <th>Plat Nomor</th>
-                      <th>Kecepatan</th>
-                      <th>Waktu</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for item in data_db %}
-                    <tr>
-                      <td>{{ loop.index }}</td>
-                      <td>{{ item.VehicleNumber }}</td>
-                      <td>{{ item.Speed }} km/h</td>
-                      <td>Recent</td>
-                      <td>Online</td>
-                    </tr>
-                    {% endfor %}
-                    {% if data_db|length < 3 %}
-                      {% for i in range(data_db|length + 1, 4) %}
-                      <tr>
-                        <td>{{ i }}</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                      </tr>
-                      {% endfor %}
-                    {% endif %}
-                  </tbody>
-                </table>
-              </div>
-              <div class="view-more">
-                <a href="/kendaraan-db" style="text-decoration: none; color: inherit;">View More...</a>
+        <!-- 📊 Ringkasan Angka -->
+        <div class="row mb-4 g-3">
+
+          <!-- Total Jarak Tempuh -->
+          <div class="col-md-3">
+            <div class="card text-center shadow-sm h-100">
+              <div class="card-body">
+                <h5>Total Jarak Tempuh</h5>
+                <h3>{{ summary_data|sum(attribute='total_mileage') }} km</h3>
               </div>
             </div>
           </div>
 
-          <!-- Tabel Historical (Kanan) -->
-          <div class="col-md-6">
-            <div class="table-card small-table">
-              <div class="table-title">Data Historical</div>
-              <div class="table-responsive">
-                <table class="table table-bordered dashboard-table">
-                  <thead class="table-header">
-                    <tr>
-                      <th>No.</th>
-                      <th>Tanggal</th>
-                      <th>Engine Status</th>
-                      <th>Location</th>
-                      <th>Duration</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for item in data_history %}
-                    <tr>
-                      <td>{{ loop.index }}</td>
-                      <td>{{ item.datetime }}</td>
-                      <td>{{ item.engine }}</td>
-                      <td>Jakarta</td>
-                      <td>2h 30m</td>
-                    </tr>
-                    {% endfor %}
-                    {% if data_history|length < 3 %}
-                      {% for i in range(data_history|length + 1, 4) %}
-                      <tr>
-                        <td>{{ i }}</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                      </tr>
-                      {% endfor %}
-                    {% endif %}
-                  </tbody>
-                </table>
+          <!-- Total Konsumsi BBM -->
+          <div class="col-md-3">
+            <div class="card text-center shadow-sm h-100">
+              <div class="card-body">
+                <h5>Total Konsumsi BBM</h5>
+                <div class="row">
+                  <div class="col-6 border-end">
+                    <h6>Gasoline</h6>
+                    <h3>{{ total_gasoline }} L</h3>
+                  </div>
+                  <div class="col-6">
+                    <h6>Diesel</h6>
+                    <h3>{{ total_diesel }} L</h3>
+                  </div>
+                </div>
               </div>
-              <div class="view-more">
-                <a href="/historical" style="text-decoration: none; color: inherit;">View More...</a>
+            </div>
+          </div>
+
+          <!-- Total Emisi Armada -->
+          <div class="col-md-3">
+            <div class="card text-center shadow-sm h-100">
+              <div class="card-body">
+                <h5>Total Emisi Armada</h5>
+                <div class="row">
+                  <div class="col-6 border-end">
+                    <h6>Gasoline</h6>
+                    <h3>{{ total_emisi_gasoline|round(2) }} tCO₂e</h3>
+                  </div>
+                  <div class="col-6">
+                    <h6>Diesel</h6>
+                    <h3>{{ total_emisi_diesel|round(2) }} tCO₂e</h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kecepatan Rata-rata Armada -->
+          <div class="col-md-3">
+            <div class="card text-center shadow-sm h-100">
+              <div class="card-body">
+                <h5>Kecepatan Rata-rata Armada</h5>
+                <h3>
+                  {% set speeds = summary_data|map(attribute='avg_speed')|list %}
+                  {% set avg_speed_all = (speeds|sum) / (speeds|length if speeds|length > 0 else 1) %}
+                  {{ avg_speed_all|round(2) }} km/h
+                </h3>
               </div>
             </div>
           </div>
         </div>
+
+        <!-- 📈 Grafik Mileage -->
+        <div class="card shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="text-center">Jarak Tempuh</h5>
+            <div class="chart-container">
+              <canvas id="mileageChart"></canvas>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
 </div>
 
+<!-- ================= Chart Script ================= -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const sidebar = document.getElementById('sidebar');
-  const mainContent = document.getElementById('mainContent');
-  const toggleBtn = document.getElementById('toggleSidebar');
-  const toggleIcon = document.getElementById('toggleIcon');
+const chartType = "{{ chart_type }}";
+const chartLabels = {{ chart_labels|tojson }};
+const chartDatasets = {{ chart_datasets|tojson }};
 
-  toggleBtn.addEventListener('click', function() {
-    sidebar.classList.toggle('collapsed');
-    mainContent.classList.toggle('expanded');
+// Warna tetap konsisten per plate
+const colorPalette = [
+    "#1f77b4","#ff7f0e","#2ca02c","#d62728","#9467bd","#8c564b",
+    "#e377c2","#7f7f7f","#bcbd22","#17becf"
+];
 
-    if (sidebar.classList.contains('collapsed')) {
-      toggleIcon.textContent = '❯';
-    } else {
-      toggleIcon.textContent = '❮';
+let datasets;
+
+if(chartType === "bar") {
+    // Bar chart → semua batang warna sama (biru)
+    datasets = [{
+        label: "Mileage (km)",
+        data: chartDatasets.map(ds => ds.data.reduce((a,b)=>a+b,0)), // total mileage
+        backgroundColor: "rgba(0, 132, 243, 0.7)",  // biru utama
+        borderColor: "rgba(0, 132, 243, 1)",
+        borderWidth: 1
+    }];
+} else {
+    // Line chart → multi-line, tiap plate satu line
+    datasets = chartDatasets.map((ds,i)=>({
+        label: ds.label,
+        data: ds.data,
+        borderColor: colorPalette[i % colorPalette.length],
+        backgroundColor: "transparent",
+        fill: false,
+        tension: 0.3
+    }));
+}
+
+const ctx = document.getElementById('mileageChart').getContext('2d');
+
+new Chart(ctx, {
+    type: chartType,
+    data: {
+        labels: chartType==="bar"? chartDatasets.map(ds=>ds.label) : chartLabels,
+        datasets: datasets
+    },
+    options: {
+        responsive:true,
+        plugins:{ legend:{ display: chartType==="line" } }, // legend hanya untuk line
+        scales:{
+            x:{ title:{ display:true, text: chartType==="line"? "Tanggal":"Plat Kendaraan" }},
+            y:{ title:{ display:true, text:"Kilometer" }}
+        }
     }
-  });
-
-
 });
 </script>
+
+<script src="{{ url_for('static', filename='js/sidebar-toggle.js') }}"></script>
 </body>
 </html>

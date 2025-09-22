@@ -1,0 +1,39 @@
+<nav id="sidebar" class="sidebar d-flex flex-column align-items-center">
+  <button id="toggleSidebar" class="toggle-btn">
+    <span id="toggleIcon">❮</span>
+  </button>
+
+  <!-- LOGO -->
+  <div class="logo mb-3 text-center">
+    <img src="{{ url_for('static', filename='img/Jala White.png') }}" alt="JALA GPS.id">
+    <div class="text-white mt-2 fw-bold" style="font-size: 1.1rem;">Vehicles Report</div>
+  </div>
+
+  <!-- MENU -->
+  <ul class="nav flex-column w-100 px-3">
+    <li class="nav-item">
+      <a class="nav-link text-white" href="/">
+        <img src="{{ url_for('static', filename='img/dashboard-icon.png') }}" class="nav-icon">
+        <span class="nav-text">Dashboard</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link text-white" href="/maps">
+        <img src="{{ url_for('static', filename='img/maps-icon.png') }}" class="nav-icon">
+        <span class="nav-text">Maps</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link text-white" href="/historical">
+        <img src="{{ url_for('static', filename='img/history-icon.png') }}" class="nav-icon">
+        <span class="nav-text">History</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link text-white" href="/vehicles">
+        <img src="{{ url_for('static', filename='img/vehicles-icon.png') }}" class="nav-icon">
+        <span class="nav-text">Vehicles</span>
+      </a>
+    </li>
+  </ul>
+</nav>

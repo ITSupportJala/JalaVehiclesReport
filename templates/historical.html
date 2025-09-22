@@ -1,58 +1,102 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Data Historis Tahun Sebelumnya</title>
+  <title>Data Historis</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-<body class="bg-light">
-  <div class="container mt-4">
-    <h2 class="mb-3">Data Historis (tanpa masuk database)</h2>
-    <form method="POST" class="row g-3 mb-4">
-      <div class="col-md-3">
-        <select name="imei" class="form-select" required>
-          <option value="">Pilih IMEI</option>
-          {% for item in imei_list %}
-          <option value="{{ item.imei }}" {% if item.imei == request.form.get('imei') %}selected{% endif %}>{{ item.imei }} - {{ item.plate }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3">
-        <input type="date" name="start_date" class="form-control" value="{{ request.form.get('start_date', '') }}" required>
-      </div>
-      <div class="col-md-3">
-        <input type="date" name="end_date" class="form-control" value="{{ request.form.get('end_date', '') }}" required>
-      </div>
-      <div class="col-md-3">
-        <button type="submit" class="btn btn-primary w-100">🔍 Ambil Data</button>
-      </div>
-    </form>
-    {% if error %}
-    <div class="alert alert-danger">{{ error }}</div>
-    {% endif %}
-    {% if data %}
-    <div class="table-responsive">
-      <table class="table table-bordered table-striped">
-        <thead class="table-dark">
-          <tr>
-            {% for key in data[0].keys() %}
-            <th>{{ key }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in data %}
-          <tr>
-            {% for val in row.values() %}
-            <td>{{ val }}</td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+<body>
+  <div class="container-fluid">
+    <div class="row">
+
+      <!-- Sidebar -->
+      {% include 'sidebar.html' %}
+
+      <!-- Main Content -->
+      <main id="mainContent" class="main-content bg-light p-4">
+        <h2 class="mb-4 dashboard-header">Data Historis</h2>
+
+        <!-- Form Filter -->
+        <form method="GET" action="{{ url_for('historical_data') }}" class="row g-3 mb-4" onsubmit="showLoading()">
+          <div class="col-md-3">
+            <label class="form-label">Plat</label>
+            <select name="plate" class="form-select">
+              <option value="all" {% if selected_plate == 'all' %}selected{% endif %}>Semua</option>
+              {% for v in imei_list %}
+              <option value="{{ v.plate }}" {% if selected_plate == v.plate %}selected{% endif %}>
+                {{ v.plate }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Dari Tanggal</label>
+            <input type="date" class="form-control" name="start_date" value="{{ start_date }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Sampai Tanggal</label>
+            <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Tampilkan</button>
+          </div>
+        </form>
+
+        <!-- Spinner -->
+        <div id="loading-spinner" class="mb-4 text-center" style="display:none;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Mengambil data, mohon tunggu...</p>
+        </div>
+
+        <!-- Tabel Data -->
+        <div class="table-responsive table-card">
+          {% if data %}
+          <table class="table table-striped table-bordered dashboard-table">
+            <thead class="table-header">
+              <tr>
+                <th>No</th>
+                <th>Tanggal</th>
+                <th>Plat</th>
+                <th>Kecepatan Rata-rata</th>
+                <th>Mileage (km)</th>
+                <th>BBM Terpakai (L)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in data %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ item.date }}</td>
+                <td>
+                  {{ item.plate }}
+                  <a href="{{ url_for('historical_detail', plate=item.plate, imei=item.imei, start=start_date, end=end_date) }}">
+                    Detail
+                  </a>
+                </td>
+                <td>{{ item.avg_speed }}</td>
+                <td>{{ item.mileage_today }}</td>
+                <td>{{ item.fuel_used }}</td>
+                <td>{{ item.status }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% elif start_date and end_date %}
+          <p class="text-muted">Tidak ada data tersedia untuk tanggal tersebut.</p>
+          {% else %}
+          <p class="text-muted">Silakan pilih tanggal terlebih dahulu untuk menampilkan data.</p>
+          {% endif %}
+        </div>
+      </main>
     </div>
-    {% endif %}
-    <a href="/" class="btn btn-secondary mt-3">&larr; Kembali ke Dashboard</a>
   </div>
+
+  <!-- JS -->
+  <script src="{{ url_for('static', filename='js/loading-spinner.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/sidebar-toggle.js') }}"></script>
 </body>
 </html>

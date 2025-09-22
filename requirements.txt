@@ -2,3 +2,9 @@ flask
 requests
 python-dotenv
 mysql-connector-python
+pandas
+openpyxl
+matplotlib
+timezonefinder 
+pytz
+xlsxwriter

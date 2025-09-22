@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Data Kendaraan Jala</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="container-fluid">
+  <div class="row">
+
+    <!-- Sidebar -->
+    {% include 'sidebar.html' %}
+
+    <!-- main content -->
+    <main id="mainContent" class="main-content bg-light p-4">
+      <div class="container mt-5">
+        <div class="row justify-content-center">
+          <div class="col-lg-10">
+            <div class="table-card">
+              <div class="table-title">Data Kendaraan Jala (API GPS.id)</div>
+              <div class="table-responsive">
+                <table class="table dashboard-table">
+                  <thead class="table-header">
+                    <tr>
+                      <th>No</th>
+                      <th>Plat Nomor</th>
+                      <th class="text-start">Nama Kendaraan</th>
+                      <th>IMEI</th>
+                      <th>Mileage</th>
+                      <th>Update Terakhir</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for k in kendaraan %}
+                    <tr>
+                      <td>{{ loop.index }}</td>
+                      <td>{{ k.plate }}</td>
+                      <td class="text-start">{{ k.device_name }}</td>
+                      <td>{{ k.imei }}</td>
+                      <td>{{ k.mileage | round(2) }} m</td>
+                      <td>{{ k.last_update }}</td>
+                      <td>
+                        {% if k.status == 'Aktif' %}
+                          <span class="badge bg-success">Aktif</span>
+                        {% else %}
+                          <span class="badge bg-secondary">Tidak Aktif</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<!-- Optional: Spinner handler -->
+<script>
+  function showLoading() {
+    document.getElementById("loading-spinner").style.display = "block";
+  }
+</script>
+
+<!-- JS Sidebar Toggle -->
+<script src="{{ url_for('static', filename='js/sidebar-toggle.js') }}"></script>
+
+</body>
+</html>

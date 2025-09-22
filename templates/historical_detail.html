@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Detail Historis Kendaraan</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f8f9fa; }
+    .table thead { background-color: var(--bs-primary); color: white; }
+    .back-btn { float: right; }
+  </style>
+</head>
+  <body>
+    <div class="container mt-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">Detail Historis Kendaraan</h3>
+        <a href="{{ url_for('historical_data', start_date=start, end_date=end) }}" class="btn btn-primary back-btn">
+          ← Kembali
+        </a>
+      </div>
+
+      <!-- 🔽 Dropdown pilih plate -->
+      <form method="get" class="row g-3 mb-3">
+        <div class="col-md-4">
+          <select name="plate" class="form-select" onchange="this.form.submit()">
+            {% for p in all_plates %}
+              <option value="{{ p }}" {% if p == plate %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- hidden biar tanggal tetap terpakai -->
+        <input type="hidden" name="start" value="{{ start }}">
+        <input type="hidden" name="end" value="{{ end }}">
+      </form>
+
+      <!-- Informasi Kendaraan -->
+      {% if vehicle_name %}
+      <p class="mb-1"><strong>Nama Kendaraan:</strong> {{ vehicle_name }}</p>
+      {% endif %}
+      <p><strong>Periode:</strong> {{ start }} sampai {{ end }}</p>
+
+
+    {% if data %}
+    <!-- Tombol Ekspor -->
+    <div class="mt-3 mb-3">
+      <a href="{{ url_for('historical_detail', plate=plate, start=start, end=end) }}&export=1" class="btn btn-success">
+        📥 Ekspor Excel
+      </a>
+    </div>
+
+    <!-- Ringkasan -->
+    <div class="mt-3">
+      <h5>Ringkasan Periode</h5>
+      <ul>
+        <li><strong>Total Mileage:</strong> {{ total_mileage }} km</li>
+        <li><strong>Total BBM Terpakai:</strong> {{ total_fuel }} liter</li>
+        <li><strong>Rata-rata Kecepatan:</strong> {{ avg_speed }} km/jam</li>
+      </ul>
+    </div>
+
+    <!-- Grafik -->
+    {% if chart_path %}
+    <div class="mt-4">
+      <h5>Grafik Mileage & BBM</h5>
+      <img src="{{ url_for('static', filename=chart_path.split('static/')[-1]) }}"
+           alt="Grafik" class="img-fluid">
+    </div>
+    {% endif %}
+
+    <!-- Tabel Rekap Harian -->
+    <div class="table-responsive mt-4">
+      <h5>Rekap Per Hari</h5>
+      <table class="table table-bordered table-striped table-sm">
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Tanggal</th>
+            <th>Rata-rata Kecepatan (km/jam)</th>
+            <th>Mileage (km)</th>
+            <th>BBM Terpakai (liter)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in data %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.date }}</td>
+            <td>{{ row.avg_speed }}</td>
+            <td>{{ row.mileage_today }}</td>
+            <td>{{ row.fuel_used }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="alert alert-warning mt-4">Tidak ada data ditemukan dari API.</div>
+    {% endif %}
+  </div>
+</body>
+</html>
