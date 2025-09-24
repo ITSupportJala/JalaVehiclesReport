@@ -38,17 +38,26 @@
                     <tr>
                       <td>{{ loop.index }}</td>
                       <td>{{ k.plate }}</td>
-                      <td class="text-start">{{ k.device_name }}</td>
+<td>
+  <input type="text" class="form-control form-control-sm"
+         value="{{ k.custom_name if k.custom_name else k.device_name }}"
+         onchange="updateName('{{ k.imei }}', this.value)">
+</td>
                       <td>{{ k.imei }}</td>
                       <td>{{ k.mileage | round(2) }} m</td>
                       <td>{{ k.last_update }}</td>
-                      <td>
-                        {% if k.status == 'Aktif' %}
-                          <span class="badge bg-success">Aktif</span>
-                        {% else %}
-                          <span class="badge bg-secondary">Tidak Aktif</span>
-                        {% endif %}
-                      </td>
+<td>
+  <div class="form-check form-switch">
+    <input class="form-check-input" type="checkbox" role="switch"
+           id="toggle-{{ k.imei }}"
+           {% if k.status == 'Aktif' %}checked{% endif %}
+           onchange="updateStatus('{{ k.imei }}', this.checked ? 'Aktif' : 'Tidak Aktif')">
+    <label class="form-check-label" for="toggle-{{ k.imei }}">
+      {{ 'Aktif' if k.status == 'Aktif' else 'Tidak Aktif' }}
+    </label>
+  </div>
+</td>
+
                     </tr>
                     {% endfor %}
                   </tbody>
@@ -72,6 +81,77 @@
 
 <!-- JS Sidebar Toggle -->
 <script src="{{ url_for('static', filename='js/sidebar-toggle.js') }}"></script>
+
+<script>
+function updateStatus(imei, status) {
+  fetch('/update_status', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ imei: imei, status: status })
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+    // Optional: kasih notifikasi sukses
+    if (data.success) {
+      alert(`Status kendaraan ${imei} berhasil diubah ke ${status}`);
+    } else {
+      alert("Gagal update status");
+    }
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Terjadi error saat update status");
+  });
+}
+</script>
+
+<script>
+function updateStatus(imei, status) {
+  fetch('/update_status', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ imei: imei, status: status })
+  })
+  .then(response => response.json())
+  .then(data => {
+    console.log(data);
+    // update label teks setelah toggle
+    const label = document.querySelector(`#toggle-${imei} + label`);
+    if (label) label.innerText = status;
+  })
+  .catch(err => {
+    console.error(err);
+    alert("Terjadi error saat update status");
+  });
+}
+</script>
+
+<script>
+function updateName(imei, name) {
+  fetch('/update_name', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ imei: imei, custom_name: name })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      console.log("Nama berhasil diupdate:", name);
+    } else {
+      alert("Gagal update nama");
+    }
+  })
+  .catch(err => console.error(err));
+}
+</script>
+
 
 </body>
 </html>

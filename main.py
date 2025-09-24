@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, redirect, url_for, jsonify
 import requests
 import time
 import os
@@ -370,6 +370,62 @@ def dashboard():
 
 # =========================== VEHICLES DATA ===========================
 
+import sqlite3
+
+DB_FILE = "vehicles.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS vehicles_status (
+            imei TEXT PRIMARY KEY,
+            plate TEXT,
+            device_name TEXT,
+            custom_name TEXT,              
+            status TEXT DEFAULT 'Tidak Aktif'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+# def migrate_db():
+#     conn = sqlite3.connect(DB_FILE)
+#     c = conn.cursor()
+#     try:
+#         c.execute("ALTER TABLE vehicles_status ADD COLUMN custom_name TEXT")
+#     except sqlite3.OperationalError:
+#         # kalau kolom sudah ada, biarin aja
+#         pass
+#     conn.commit()
+#     conn.close()
+
+
+def get_status(imei):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT status FROM vehicles_status WHERE imei=?", (imei,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else "Tidak Aktif"
+
+def upsert_vehicle(imei, plate, device_name):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR IGNORE INTO vehicles_status (imei, plate, device_name, status)
+        VALUES (?, ?, ?, 'Tidak Aktif')
+    """, (imei, plate, device_name))
+    conn.commit()
+    conn.close()
+
+def update_status(imei, status):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE vehicles_status SET status=? WHERE imei=?", (status, imei))
+    conn.commit()
+    conn.close()
+
 @app.route('/vehicles')
 def vehicles():
     token = get_token()
@@ -382,33 +438,30 @@ def vehicles():
             headers={"Authorization": f"Bearer {token}"})
 
         if response.status_code != 200:
-            return f"<h3>Gagal mengambil data dari GPS.id: {response.status_code}</h3><pre>{response.text}</pre>", 500
+            return f"<h3>Gagal ambil data GPS.id: {response.status_code}</h3><pre>{response.text}</pre>", 500
 
         api_data = response.json().get("message", {}).get("data", [])
-
-        df = pd.read_excel(EXCEL_FILE)
-        active_imeis = set(str(imei).strip() for imei in df['imei'].dropna())
 
         kendaraan_list = []
         for item in api_data:
             imei = str(item.get("imei", "")).strip()
             if not imei:
                 continue
+
+            plate = item.get("plate", "-")
+            device_name = item.get("device_name", "-")
+
+            # pastikan ada di DB
+            upsert_vehicle(imei, plate, device_name)
+
             kendaraan_list.append({
-                "imei":
-                imei,
-                "plate":
-                item.get("plate", "-"),
-                "device_name":
-                item.get("device_name", "-"),
-                "speed":
-                item.get("speed", 0),
-                "mileage":
-                item.get("mileage", 0),
-                "last_update":
-                item.get("last_update", "-"),
-                "status":
-                "Aktif" if imei in active_imeis else "Tidak Aktif"
+                "imei": imei,
+                "plate": plate,
+                "device_name": device_name,
+                "speed": item.get("speed", 0),
+                "mileage": item.get("mileage", 0),
+                "last_update": item.get("last_update", "-"),
+                "status": get_status(imei)
             })
 
         return render_template("vehicles.html", kendaraan=kendaraan_list)
@@ -416,6 +469,37 @@ def vehicles():
     except Exception:
         import traceback
         return f"<h3>Terjadi Error</h3><pre>{traceback.format_exc()}</pre>", 500
+
+@app.route('/update_status', methods=['POST'])
+def update_status_route():
+    data = request.get_json()
+    imei = data.get("imei")
+    status = data.get("status")
+    if not imei or not status:
+        return {"success": False, "message": "IMEI / status tidak valid"}, 400
+    
+    update_status(imei, status)
+    return {"success": True, "message": f"Status {imei} diupdate ke {status}"}
+
+@app.route('/update_name', methods=['POST'])
+def update_name():
+    data = request.get_json()
+    imei = data.get('imei')
+    custom_name = data.get('custom_name')
+
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("""
+            UPDATE vehicles_status
+            SET custom_name = ?
+            WHERE imei = ?
+        """, (custom_name, imei))
+        conn.commit()
+        conn.close()
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 500
 
 
 def safe_rows(rows):
@@ -1006,4 +1090,5 @@ def historical_detail():
     )
 
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True, host="127.0.0.1", port=5000)
