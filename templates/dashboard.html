@@ -58,24 +58,34 @@
             </div>
           </div>
 
-          <!-- Total Konsumsi BBM -->
-          <div class="col-md-3">
-            <div class="card text-center shadow-sm h-100">
-              <div class="card-body">
-                <h5>Total Konsumsi BBM</h5>
-                <div class="row">
-                  <div class="col-6 border-end">
-                    <h6>Gasoline</h6>
-                    <h3>{{ total_gasoline }} L</h3>
-                  </div>
-                  <div class="col-6">
-                    <h6>Diesel</h6>
-                    <h3>{{ total_diesel }} L</h3>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+<!-- Total Konsumsi BBM -->
+<div class="col-md-3">
+  <div class="card text-center shadow-sm h-100">
+    <div class="card-body">
+      <h5>Total Konsumsi BBM</h5>
+      <div class="row">
+        <div class="col-4 border-end">
+          <h6>Pertalite</h6>
+          <h3>
+            {{ summary_data|selectattr("fuel_type","equalto","Pertalite")|map(attribute="fuel_consumption")|sum|round(2) }} L
+          </h3>
+        </div>
+        <div class="col-4 border-end">
+          <h6>Pertamax</h6>
+          <h3>
+            {{ summary_data|selectattr("fuel_type","equalto","Pertamax")|map(attribute="fuel_consumption")|sum|round(2) }} L
+          </h3>
+        </div>
+        <div class="col-4">
+          <h6>Solar</h6>
+          <h3>
+            {{ summary_data|selectattr("fuel_type","equalto","Solar")|map(attribute="fuel_consumption")|sum|round(2) }} L
+          </h3>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
           <!-- Total Emisi Armada -->
           <div class="col-md-3">

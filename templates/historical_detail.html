@@ -22,11 +22,13 @@
       <!-- 🔽 Dropdown pilih plate -->
       <form method="get" class="row g-3 mb-3">
         <div class="col-md-4">
-          <select name="plate" class="form-select" onchange="this.form.submit()">
-            {% for p in all_plates %}
-              <option value="{{ p }}" {% if p == plate %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
-          </select>
+<select name="plate" class="form-select" onchange="this.form.submit()">
+  {% for v in all_plates %}
+    <option value="{{ v.plate }}" {% if v.plate == plate %}selected{% endif %}>
+      {{ v.plate }} - {{ v.device_name }}
+    </option>
+  {% endfor %}
+</select>
         </div>
         <!-- hidden biar tanggal tetap terpakai -->
         <input type="hidden" name="start" value="{{ start }}">

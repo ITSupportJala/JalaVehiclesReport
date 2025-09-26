@@ -18,10 +18,34 @@ import matplotlib.pyplot as plt
 
 logging.getLogger('werkzeug').disabled = True
 
+# SETUP LOGGING
+logging.basicConfig(
+    level=logging.INFO,  # Level default: INFO (bisa DEBUG, WARNING, ERROR)
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler()  # tampil di console
+        # logging.FileHandler("app.log")  # kalau mau simpan ke file
+    ]
+)
+
 # =========================== KONFIGURASI & KONSTANTA ===========================
 load_dotenv()
 EXCEL_FILE = 'data_kendaraan.xlsx'
-EFFICIENCY_KM_PER_LITER = 15
+
+EFFICIENCY_BY_FUEL = {
+    "Pertalite": 12,
+    "Pertamax": 23,
+    "Solar": 15,
+    "None": 15   # default kalau kosong
+}
+
+FUEL_MAPPING = {
+    "Pertalite": "gasoline",
+    "Pertamax": "gasoline",
+    "Solar": "diesel",
+    "None": "diesel"
+}
+
 GWP_CH4 = 29.8
 GWP_N2O = 273
 
@@ -43,6 +67,58 @@ def custom_log(response):
     )
     return response
 
+# =========================== DATABASE ===========================
+import sqlite3
+
+DB_FILE = "vehicles.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS vehicles_status (
+            imei TEXT PRIMARY KEY,
+            plate TEXT,
+            device_name TEXT,
+            custom_name TEXT,              
+            status TEXT DEFAULT 'Tidak Aktif'
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+def get_status(imei):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT status FROM vehicles_status WHERE imei=?", (imei,))
+    row = c.fetchone()
+    conn.close()
+    return row[0] if row else "Tidak Aktif"
+
+def upsert_vehicle(imei, plate, device_name):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        INSERT OR IGNORE INTO vehicles_status (imei, plate, device_name, status)
+        VALUES (?, ?, ?, 'Tidak Aktif')
+    """, (imei, plate, device_name))
+    conn.commit()
+    conn.close()
+
+def update_status(imei, status):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE vehicles_status SET status=? WHERE imei=?", (status, imei))
+    conn.commit()
+    conn.close()
+
+# 🔹 Fungsi baru untuk update custom_name
+def update_custom_name(imei, custom_name):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE vehicles_status SET custom_name=? WHERE imei=?", (custom_name, imei))
+    conn.commit()
+    conn.close()
 
 # =========================== TOKEN HANDLER ===========================
 def get_token():
@@ -179,28 +255,25 @@ def get_history_data(token, imei, start_date, end_date):
 
     return all_data
 
-
-
 # =========================== HELPER FUNCTION ===========================
+def get_active_vehicles():
+    with sqlite3.connect(DB_FILE) as conn:
+        c = conn.cursor()
+        c.execute("""
+            SELECT imei, plate, COALESCE(custom_name, device_name) as device_name, fuel_type
+            FROM vehicles_status
+            WHERE status='Aktif'
+        """)
+        rows = c.fetchall()
+    if not rows:
+        return pd.DataFrame(columns=["imei", "plate", "device_name", "fuel_type"])
+    return pd.DataFrame(rows, columns=["imei", "plate", "device_name", "fuel_type"]).sort_values(by="plate").reset_index(drop=True)
+
 def load_active_vehicles():
     if not os.path.exists(EXCEL_FILE):
         raise FileNotFoundError("File Excel tidak ditemukan.")
     df = pd.read_excel(EXCEL_FILE)
     return df[['imei', 'plate', 'device_name']].dropna()
-
-# def fetch_history_range(token, imei, start, end):
-#     all_data = []
-#     current_start = start
-#     while current_start <= end:
-#         current_end = min(current_start + timedelta(days=6), end)
-#         data = get_history_data(token, imei,
-#                                 current_start.strftime("%Y-%m-%d"),
-#                                 current_end.strftime("%Y-%m-%d"))
-#         all_data.extend(data)
-#         current_start = current_end + timedelta(days=1)
-#     return all_data
-
-# UNTUK EMISI 
 
 FUEL_DEFAULTS = {
     "gasoline": {"density": 0.74, "ncv": 44.3, "ef_co2": 69300, "ef_ch4": 33, "ef_n2o": 3.2},
@@ -252,20 +325,13 @@ def dashboard():
         end_dt = datetime.strptime(end_time, '%Y-%m-%d')
         delta_days = (end_dt - start_dt).days + 1
 
-        # Ambil mapping plate -> imei
-        df_active = load_active_vehicles()
+        # Ambil mapping plate -> imei & fuel_type dari DB
+        df_active = get_active_vehicles()
         df_active['imei'] = df_active['imei'].astype(str)
         plate_to_imei = dict(zip(df_active['plate'], df_active['imei']))
+        plate_to_fueltype = dict(zip(df_active['plate'], df_active['fuel_type']))
         all_plates = list(plate_to_imei.keys())
         target_plates = [search_plate] if search_plate else all_plates
-
-        # Ambil mapping plate -> fuel_type
-        df_kendaraan = pd.read_excel("data_kendaraan.xlsx")
-        plate_to_fueltype = {}
-        for _, row in df_kendaraan.iterrows():
-            plate = str(row.get("plate","")).strip()
-            device_name = str(row.get("device_name","")).lower()
-            plate_to_fueltype[plate] = "gasoline" if "innova" in device_name else "diesel"
 
         # Siapkan summary & chart
         summary_data = []
@@ -281,60 +347,71 @@ def dashboard():
 
             data = get_history_data(token, imei, start_time, end_time)
             if not data:
-                # isi 0 kalau tidak ada data
-                daily_mileage = [0]*delta_days
+                daily_mileage = [0] * delta_days
             else:
                 # hitung mileage per hari
-                daily_result = defaultdict(lambda: {"mileage_km":0, "prev_odo":None})
-                data = sorted([d for d in data if d.get("time") and d.get("mileage") is not None], key=lambda x:x['time'])
+                daily_result = defaultdict(lambda: {"mileage_km": 0, "prev_odo": None})
+                data = sorted(
+                    [d for d in data if d.get("time") and d.get("mileage") is not None],
+                    key=lambda x: x['time']
+                )
                 prev_mileage = None
                 for d in data:
-                    odo = d.get("mileage",0) or 0
+                    odo = d.get("mileage", 0) or 0
                     ts = d.get("time")
-                    if prev_mileage is not None and odo>prev_mileage:
-                        delta_km = (odo - prev_mileage)/1000
+                    if prev_mileage is not None and odo > prev_mileage:
+                        delta_km = (odo - prev_mileage) / 1000
                     else:
                         delta_km = 0
                     prev_mileage = odo
                     if ts:
                         date_str = ts[:10]
-                        if delta_km>0 and delta_km<500:
+                        if 0 < delta_km < 500:
                             daily_result[date_str]["mileage_km"] += delta_km
 
-                # buat list per tanggal range
-                daily_mileage = [round(daily_result[d]["mileage_km"],2) if d in daily_result else 0 for d in chart_labels]
+                daily_mileage = [
+                    round(daily_result[d]["mileage_km"], 2) if d in daily_result else 0
+                    for d in chart_labels
+                ]
 
-            # total mileage & fuel
+            # total mileage
             total_mileage = sum(daily_mileage)
-            fuel_used = round(total_mileage / EFFICIENCY_KM_PER_LITER,2)
-            fuel_type = plate_to_fueltype.get(plate,"diesel")
-            emisi = hitung_emisi(fuel_used, fuel_type=fuel_type)
 
-            if fuel_type=="gasoline":
+            # fuel type dari DB
+            fuel_type_db = plate_to_fueltype.get(plate, "None")
+            efficiency = EFFICIENCY_BY_FUEL.get(fuel_type_db, 15)
+            fuel_used = round(total_mileage / efficiency, 2)
+
+            # kategori untuk emission factor
+            fuel_category = FUEL_MAPPING.get(fuel_type_db, "diesel")
+            emisi = hitung_emisi(fuel_used, fuel_type=fuel_category)
+
+            # total emisi global
+            if fuel_category == "gasoline":
                 total_gasoline += fuel_used
                 total_emisi_gasoline += emisi["Total_CO2e_ton"]
             else:
                 total_diesel += fuel_used
                 total_emisi_diesel += emisi["Total_CO2e_ton"]
-            
-            # Hitung total & rata-rata speed
-            total_speed = sum([d.get('speed',0) or 0 for d in data])
-            count_speed = len([d for d in data if d.get('speed') is not None])
+
+            # avg speed
+            total_speed = sum([d.get('speed', 0) or 0 for d in data]) if data else 0
+            count_speed = len([d for d in data if d.get('speed') is not None]) if data else 0
             avg_speed = round(total_speed / count_speed, 2) if count_speed else 0
 
+            # simpan ke summary
             summary_data.append({
                 "plate": plate,
-                "total_mileage": round(total_mileage,2),
+                "total_mileage": round(total_mileage, 2),
                 "fuel_consumption": fuel_used,
-                "avg_speed": avg_speed,  # <- tambahkan ini
-                "fuel_type": fuel_type,
+                "avg_speed": avg_speed,
+                "fuel_type": fuel_type_db,
                 "daily_mileage": daily_mileage,
-                "emisi_total_ton": round(emisi["Total_CO2e_ton"],2),
-                "emisi_total_kg": round(emisi["Total_CO2e_kg"],2)
+                "emisi_total_ton": round(emisi["Total_CO2e_ton"], 2),
+                "emisi_total_kg": round(emisi["Total_CO2e_kg"], 2)
             })
 
-
-            # Siapkan chart dataset
+            # chart dataset
             chart_datasets.append({
                 "label": plate,
                 "data": daily_mileage
@@ -343,10 +420,10 @@ def dashboard():
         # Tentukan chart type
         if search_plate:
             chart_type = "line"  # single plate
-        elif delta_days>1:
-            chart_type = "line"  # semua kendaraan multi-line
+        elif delta_days > 1:
+            chart_type = "line"  # multi-plate multi-day
         else:
-            chart_type = "bar"   # semua kendaraan 1 hari → bar
+            chart_type = "bar"   # semua kendaraan 1 hari
 
         return render_template(
             "dashboard.html",
@@ -355,10 +432,10 @@ def dashboard():
             start_time=start_time,
             end_time=end_time,
             summary_data=summary_data,
-            total_gasoline=round(total_gasoline,2),
-            total_diesel=round(total_diesel,2),
-            total_emisi_gasoline=round(total_emisi_gasoline,2),
-            total_emisi_diesel=round(total_emisi_diesel,2),
+            total_gasoline=round(total_gasoline, 2),
+            total_diesel=round(total_diesel, 2),
+            total_emisi_gasoline=round(total_emisi_gasoline, 2),
+            total_emisi_diesel=round(total_emisi_diesel, 2),
             chart_type=chart_type,
             chart_labels=chart_labels,
             chart_datasets=chart_datasets
@@ -370,61 +447,20 @@ def dashboard():
 
 # =========================== VEHICLES DATA ===========================
 
-import sqlite3
-
-DB_FILE = "vehicles.db"
-
-def init_db():
+def get_vehicle_info(imei):
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
-        CREATE TABLE IF NOT EXISTS vehicles_status (
-            imei TEXT PRIMARY KEY,
-            plate TEXT,
-            device_name TEXT,
-            custom_name TEXT,              
-            status TEXT DEFAULT 'Tidak Aktif'
-        )
-    """)
-    conn.commit()
-    conn.close()
-
-# def migrate_db():
-#     conn = sqlite3.connect(DB_FILE)
-#     c = conn.cursor()
-#     try:
-#         c.execute("ALTER TABLE vehicles_status ADD COLUMN custom_name TEXT")
-#     except sqlite3.OperationalError:
-#         # kalau kolom sudah ada, biarin aja
-#         pass
-#     conn.commit()
-#     conn.close()
-
-
-def get_status(imei):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT status FROM vehicles_status WHERE imei=?", (imei,))
+        SELECT plate, COALESCE(custom_name, device_name), status, fuel_type
+        FROM vehicles_status
+        WHERE imei=?
+    """, (imei,))
     row = c.fetchone()
     conn.close()
-    return row[0] if row else "Tidak Aktif"
+    if row:
+        return row[0], row[1], row[2], row[3]  # plate, name, status, fuel_type
+    return None, None, None, None
 
-def upsert_vehicle(imei, plate, device_name):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("""
-        INSERT OR IGNORE INTO vehicles_status (imei, plate, device_name, status)
-        VALUES (?, ?, ?, 'Tidak Aktif')
-    """, (imei, plate, device_name))
-    conn.commit()
-    conn.close()
-
-def update_status(imei, status):
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("UPDATE vehicles_status SET status=? WHERE imei=?", (status, imei))
-    conn.commit()
-    conn.close()
 
 @app.route('/vehicles')
 def vehicles():
@@ -435,7 +471,8 @@ def vehicles():
     try:
         response = requests.get(
             "https://portal.gps.id/backend/seen/public/vehicle",
-            headers={"Authorization": f"Bearer {token}"})
+            headers={"Authorization": f"Bearer {token}"}
+        )
 
         if response.status_code != 200:
             return f"<h3>Gagal ambil data GPS.id: {response.status_code}</h3><pre>{response.text}</pre>", 500
@@ -448,20 +485,25 @@ def vehicles():
             if not imei:
                 continue
 
-            plate = item.get("plate", "-")
-            device_name = item.get("device_name", "-")
+            plate_api = item.get("plate", "-")
+            device_name_api = item.get("device_name", "-")
 
             # pastikan ada di DB
-            upsert_vehicle(imei, plate, device_name)
+            upsert_vehicle(imei, plate_api, device_name_api)
+
+            # ambil dari DB supaya custom_name kepakai
+            plate, vehicle_name, status, fuel_type = get_vehicle_info(imei)
 
             kendaraan_list.append({
                 "imei": imei,
                 "plate": plate,
-                "device_name": device_name,
+                "custom_name": None,
+                "device_name": vehicle_name,
                 "speed": item.get("speed", 0),
                 "mileage": item.get("mileage", 0),
                 "last_update": item.get("last_update", "-"),
-                "status": get_status(imei)
+                "status": status,
+                "fuel_type": fuel_type if fuel_type else "None"
             })
 
         return render_template("vehicles.html", kendaraan=kendaraan_list)
@@ -501,6 +543,19 @@ def update_name():
     except Exception as e:
         return jsonify(success=False, error=str(e)), 500
 
+@app.route('/update_fuel_type', methods=['POST'])
+def update_fuel_type():
+    data = request.json
+    imei = data.get("imei")
+    fuel_type = data.get("fuel_type")
+
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("UPDATE vehicles_status SET fuel_type=? WHERE imei=?", (fuel_type, imei))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"success": True})
 
 def safe_rows(rows):
     for row in rows:
@@ -587,173 +642,20 @@ def maps():
                            points=[],
                            result=None)
 
-# # =========================== HISTORICAL DATA ===========================
-# raw_history_cache = {}
-# historical_cache = {}  # 🔑 Cache rekap historis
-
-# @app.route('/historical', methods=['GET'])
-# def historical_data():
-#     try:
-#         token = get_token()
-#         if not token:
-#             return "Gagal mendapatkan token dari GPS.id", 500
-
-#         # === Ambil daftar kendaraan aktif dari Excel ===
-#         df = pd.read_excel(EXCEL_FILE)
-#         active_vehicles = df[['imei', 'plate', 'device_name']].dropna()
-#         imei_list = active_vehicles.to_dict(orient='records')
-
-#         result = []
-#         error = None
-
-#         # === Ambil parameter dari query string ===
-#         start_date = request.args.get('start_date', '')
-#         end_date = request.args.get('end_date', '')
-#         selected_plate = request.args.get('plate', 'all')
-
-#         if start_date and end_date:
-#             cache_key = f"{start_date}_{end_date}_{selected_plate}"
-
-#             # === Cek cache dulu ===
-#             if cache_key in historical_cache:
-#                 print("♻️ Menggunakan cache data historis")
-#                 result = historical_cache[cache_key]
-#             else:
-#                 all_data = []
-
-#                 # === Filter kendaraan (semua atau satu plate) ===
-#                 vehicles = (
-#                     active_vehicles
-#                     if selected_plate == "all"
-#                     else active_vehicles[active_vehicles["plate"] == selected_plate]
-#                 )
-
-#                 # === Ambil data historis untuk setiap kendaraan ===
-#                 for _, row in vehicles.iterrows():
-#                     plate = row['plate']
-#                     imei = str(row['imei'])
-#                     print(f"▶️ Memproses {plate} (IMEI: {imei})")
-
-#                     try:
-#                         history = get_history_data(token, imei, start_date, end_date)
-#                         raw_key = f"{imei}_{start_date}_{end_date}"
-#                         raw_history_cache[raw_key] = history
-#                         print(f"  ✔️ Ambil {start_date} - {end_date} → {len(history)} data")
-
-#                         for item in history:
-#                             item.update({
-#                                 'imei': imei,
-#                                 'plate': plate,
-#                                 'device_name': row['device_name']
-#                             })
-#                             all_data.append(item)
-
-#                     except Exception as e:
-#                         print(f"  ❌ Gagal ambil data → {e}")
-
-#                     time.sleep(1.5)  # throttle biar tidak overload API
-
-#                 # === Rekap per tanggal ===
-#                 grouped = defaultdict(lambda: {
-#                     "total_speed": 0,
-#                     "speed_count": 0,
-#                     "odo_start": None,
-#                     "odo_end": None,
-#                     "device_name": ""
-#                 })
-
-#                 for item in all_data:
-#                     if not item.get("time") or item.get("mileage") is None:
-#                         continue
-
-#                     key = (item['plate'], item['time'][:10])
-#                     group = grouped[key]
-
-#                     if item['speed'] > 1:
-#                         group['total_speed'] += item['speed']
-#                         group['speed_count'] += 1
-
-#                     odo = item['mileage']
-#                     group['odo_start'] = odo if group['odo_start'] is None else min(group['odo_start'], odo)
-#                     group['odo_end'] = odo if group['odo_end'] is None else max(group['odo_end'], odo)
-#                     group['device_name'] = group['device_name'] or item['device_name']
-
-#                 # === Rekap per kendaraan ===
-#                 per_plate = defaultdict(lambda: {
-#                     "total_speed": 0,
-#                     "speed_count": 0,
-#                     "odo_start": None,
-#                     "odo_end": None,
-#                     "device_name": ""
-#                 })
-
-#                 for (plate, _), data in grouped.items():
-#                     group = per_plate[plate]
-#                     group['total_speed'] += data['total_speed']
-#                     group['speed_count'] += data['speed_count']
-#                     group['odo_start'] = data['odo_start'] if group['odo_start'] is None else min(group['odo_start'], data['odo_start'])
-#                     group['odo_end'] = data['odo_end'] if group['odo_end'] is None else max(group['odo_end'], data['odo_end'])
-#                     group['device_name'] = group['device_name'] or data['device_name']
-
-#                 # === Hitung ringkasan per kendaraan ===
-#                 for row in vehicles.to_dict(orient='records'):
-#                     plate = row['plate']
-#                     imei = str(row['imei'])
-#                     val = per_plate.get(plate)
-#                     if not val:
-#                         continue
-
-#                     odo_start, odo_end = val['odo_start'], val['odo_end']
-#                     mileage_km = (odo_end - odo_start) / 1000 if odo_start and odo_end else 0
-#                     fuel_used = round(mileage_km / EFFICIENCY_KM_PER_LITER, 2) if mileage_km > 0 else 0
-#                     avg_speed = round(val['total_speed'] / val['speed_count'], 2) if val['speed_count'] else 0
-
-#                     if mileage_km == 0:
-#                         status = "🛑 Tidak Bergerak"
-#                     elif val['speed_count'] == 0:
-#                         status = "⚠️ Ada Mileage, Tapi Speed 0"
-#                     else:
-#                         status = "✅ OK"
-
-#                     result.append({
-#                         "plate": plate,
-#                         "imei": imei,
-#                         "device_name": val['device_name'],
-#                         "date": f"{start_date} s.d. {end_date}",
-#                         "avg_speed": avg_speed,
-#                         "mileage_today": round(mileage_km, 2),
-#                         "fuel_used": fuel_used,
-#                         "status": status
-#                     })
-
-#                 # Simpan hasil rekap ke cache
-#                 historical_cache[cache_key] = result
-
-#         return render_template(
-#             "historical.html",
-#             data=result,
-#             imei_list=imei_list,
-#             start_date=start_date,
-#             end_date=end_date,
-#             selected_plate=selected_plate,
-#             error=error
-#         )
-
-#     except Exception:
-#         import traceback
-#         return f"<pre>{traceback.format_exc()}</pre>"
-
 # =========================== HISTORICAL DATA ===========================
 raw_history_cache = {}
 historical_cache = {}  # 🔑 Cache rekap historis
+historical_detail_cache = {}  # 🔑 Cache detail harian
 
-def get_summary_from_detail(token, imei, plate, device_name, start_date, end_date):
+
+# ================== SUMMARY UNTUK /historical ==================
+def get_summary_from_detail(token, imei, plate, device_name, start_date, end_date, fuel_type="Solar"):
     """Ambil data detail harian lalu rekap total"""
     cache_key = f"summary_{imei}_{start_date}_{end_date}"
     if cache_key in historical_cache:
         return historical_cache[cache_key]
 
-    # Ambil data historis (pakai chunk biar aman)
+    # ========== ambil data seperti biasa ==========
     current_start = datetime.strptime(start_date, "%Y-%m-%d")
     current_end = datetime.strptime(end_date, "%Y-%m-%d")
     all_data = []
@@ -765,18 +667,12 @@ def get_summary_from_detail(token, imei, plate, device_name, start_date, end_dat
         all_data.extend(history)
         current_start = chunk_end + timedelta(days=1)
 
-    # Simpan raw ke cache juga
     raw_key = f"{imei}_{start_date}_{end_date}"
     raw_history_cache[raw_key] = all_data
 
-    # Proses harian (seperti di /historical/detail)
-    grouped = defaultdict(lambda: {
-        "total_speed": 0,
-        "speed_count": 0,
-        "mileage_km": 0,
-        "prev_odo": None
-    })
-
+    # ========== proses mileage & speed ==========
+    grouped = defaultdict(lambda: {"total_speed": 0, "speed_count": 0,
+                                   "mileage_km": 0, "prev_odo": None})
     all_data = sorted(
         [d for d in all_data if d.get("time") and d.get("mileage") is not None],
         key=lambda x: x['time']
@@ -786,21 +682,25 @@ def get_summary_from_detail(token, imei, plate, device_name, start_date, end_dat
         date_str = item['time'][:10]
         odo = item['mileage']
         speed = item.get('speed', 0)
-        group = grouped[date_str]
+        g = grouped[date_str]
 
-        if group['prev_odo'] is not None and odo >= group['prev_odo']:
-            delta_km = (odo - group['prev_odo']) / 1000
-            if 0 < delta_km < 500:  # filter noise
-                group['mileage_km'] += delta_km
-        group['prev_odo'] = odo
+        if g['prev_odo'] is not None and odo >= g['prev_odo']:
+            delta_km = (odo - g['prev_odo']) / 1000
+            if 0 < delta_km < 500:
+                g['mileage_km'] += delta_km
+        g['prev_odo'] = odo
 
         if speed > 1:
-            group['total_speed'] += speed
-            group['speed_count'] += 1
+            g['total_speed'] += speed
+            g['speed_count'] += 1
 
-    # Rekap total kendaraan
+    # ========== rekap total ==========
     total_mileage = sum(g['mileage_km'] for g in grouped.values())
-    total_fuel = round(total_mileage / EFFICIENCY_KM_PER_LITER, 2) if total_mileage > 0 else 0
+
+    # ✅ fuel_type spesifik
+    eff = EFFICIENCY_BY_FUEL.get(fuel_type, 15)
+    total_fuel = round(total_mileage / eff, 2) if total_mileage > 0 else 0
+
     avg_speed_list = [g['total_speed'] / g['speed_count'] for g in grouped.values() if g['speed_count']]
     avg_speed = round(sum(avg_speed_list) / len(avg_speed_list), 2) if avg_speed_list else 0
 
@@ -815,6 +715,7 @@ def get_summary_from_detail(token, imei, plate, device_name, start_date, end_dat
         "plate": plate,
         "imei": imei,
         "device_name": device_name,
+        "fuel_type": fuel_type,   # ✅ fuel_type ikut disimpan
         "date": f"{start_date} s.d. {end_date}",
         "avg_speed": avg_speed,
         "mileage_today": round(total_mileage, 2),
@@ -826,58 +727,58 @@ def get_summary_from_detail(token, imei, plate, device_name, start_date, end_dat
     return result
 
 
-@app.route('/historical', methods=['GET'])
+# ================== ROUTE /historical ==================
+@app.route('/historical')
 def historical_data():
+    """Rekap per kendaraan (periode)"""
     try:
         token = get_token()
-        if not token:
-            return "Gagal mendapatkan token dari GPS.id", 500
+        active_vehicles = get_active_vehicles()
 
-        # === Ambil daftar kendaraan aktif dari Excel ===
-        df = pd.read_excel(EXCEL_FILE)
-        active_vehicles = df[['imei', 'plate', 'device_name']].dropna()
-        imei_list = active_vehicles.to_dict(orient='records')
+        # pastikan DataFrame & hilangkan duplikat plate
+        if isinstance(active_vehicles, pd.DataFrame):
+            active_vehicles["plate"] = active_vehicles["plate"].astype(str).str.strip().str.upper()
+            active_vehicles = active_vehicles.drop_duplicates(subset=["plate"])
+            imei_list = active_vehicles.to_dict(orient="records")
+        else:
+            imei_list = active_vehicles
 
-        result = []
-        error = None
-
-        # === Ambil parameter dari query string ===
+        error, result = None, []
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
         selected_plate = request.args.get('plate', 'all')
 
         if start_date and end_date:
             cache_key = f"{start_date}_{end_date}_{selected_plate}"
-
-            # === Cek cache dulu ===
             if cache_key in historical_cache:
-                print("♻️ Menggunakan cache data historis")
                 result = historical_cache[cache_key]
+                logging.info(f"✅ Cache hit untuk {cache_key}, {len(result)} data diambil dari cache")
             else:
-                # === Filter kendaraan (semua atau satu plate) ===
-                vehicles = (
-                    active_vehicles
-                    if selected_plate == "all"
-                    else active_vehicles[active_vehicles["plate"] == selected_plate]
-                )
+                vehicles = active_vehicles if selected_plate == "all" else active_vehicles[active_vehicles["plate"] == selected_plate]
 
-                # === Ambil summary dari detail ===
                 for _, row in vehicles.iterrows():
-                    plate = row['plate']
-                    imei = str(row['imei'])
-                    device_name = row['device_name']
-                    print(f"▶️ Memproses {plate} (IMEI: {imei})")
-
                     try:
-                        summary = get_summary_from_detail(token, imei, plate, device_name, start_date, end_date)
+                        fuel_type = row["fuel_type"] if "fuel_type" in row and pd.notna(row["fuel_type"]) else "Solar"
+                        logging.info(f"🔄 Ambil data {row['plate']} ({fuel_type}) periode {start_date} → {end_date}")
+
+                        summary = get_summary_from_detail(
+                            token,
+                            str(row['imei']),
+                            row['plate'],
+                            row['device_name'],
+                            start_date,
+                            end_date,
+                            fuel_type
+                        )
                         result.append(summary)
+                        logging.info(f"✅ Berhasil ambil data {row['plate']}")
+
                     except Exception as e:
-                        print(f"  ❌ Gagal ambil data {plate} → {e}")
+                        logging.error(f"❌ Gagal ambil data {row['plate']} → {e}")
+                    time.sleep(1.5)
 
-                    time.sleep(1.5)  # throttle biar tidak overload API
-
-                # Simpan hasil ke cache
                 historical_cache[cache_key] = result
+                logging.info(f"💾 Data disimpan ke cache: {cache_key}")
 
         return render_template(
             "historical.html",
@@ -888,14 +789,34 @@ def historical_data():
             selected_plate=selected_plate,
             error=error
         )
-
     except Exception:
+        logging.exception("🚨 Error di /historical")
         import traceback
         return f"<pre>{traceback.format_exc()}</pre>"
 
-# =========================== DATA HISTORICAL DETAIL ===========================
+# ================== DETAIL UNTUK /historical/detail ==================
+def get_all_plates():
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("""
+        SELECT imei, plate, COALESCE(custom_name, device_name) as device_name
+        FROM vehicles_status
+        WHERE status='Aktif'
+    """)
+    rows = c.fetchall()
+    conn.close()
+    return [{"imei": r[0], "plate": r[1], "device_name": r[2]} for r in rows]
 
-historical_detail_cache = {}
+def get_vehicle(plate=None, imei=None):
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    if plate:
+        c.execute("SELECT imei, plate, COALESCE(custom_name, device_name) FROM vehicles_status WHERE plate=?", (plate.strip(),))
+    elif imei:
+        c.execute("SELECT imei, plate, COALESCE(custom_name, device_name) FROM vehicles_status WHERE imei=?", (imei.strip(),))
+    row = c.fetchone()
+    conn.close()
+    return row
 
 @app.route('/historical/detail')
 def historical_detail():
@@ -912,25 +833,15 @@ def historical_detail():
     if not all([start, end]) or (not plate and not imei):
         return "Parameter tidak lengkap", 400
 
-    # Baca Excel
-    df = pd.read_excel(EXCEL_FILE)
-    df['imei'] = df['imei'].apply(lambda x: str(int(x)) if not pd.isna(x) else '')
-    df['plate'] = df['plate'].astype(str).str.strip()
-    all_plates = sorted(df['plate'].unique().tolist())   # 🔑 semua plat
+    # 🔹 Ambil daftar semua plat dari DB
+    all_plates = get_all_plates()
 
-    # Cari kendaraan
-    if plate:
-        vehicle = df[df['plate'] == plate.strip()]
-    elif imei:
-        vehicle = df[df['imei'] == imei.strip()]
-    else:
-        vehicle = pd.DataFrame()
-
-    if vehicle.empty:
+    # 🔹 Ambil kendaraan spesifik
+    vehicle = get_vehicle(plate, imei)
+    if not vehicle:
         return "Kendaraan tidak ditemukan", 404
 
-    imei = str(vehicle.iloc[0]['imei'])
-    plate = vehicle.iloc[0]['plate']
+    imei, plate, device_name = vehicle
     cache_key = f"{imei}_{start}_{end}"
 
     # ================== AMBIL DATA RAW (CACHE / API) ==================
@@ -963,8 +874,7 @@ def historical_detail():
                 )
             current_start = current_end + timedelta(days=1)
 
-        # simpan ke cache supaya next time nggak fetch ulang
-        raw_history_cache[cache_key] = all_data
+        raw_history_cache[cache_key] = all_data  # simpan cache
 
     # ================== PROSES DATA ==================
     grouped = defaultdict(lambda: {
@@ -1016,8 +926,7 @@ def historical_detail():
         })
         current_date += timedelta(days=1)
 
-    # cache hasil perhitungan
-    historical_detail_cache[cache_key] = result
+    historical_detail_cache[cache_key] = result  # cache hasil
 
     # ================== DEBUG MODE ==================
     if debug:
@@ -1081,12 +990,12 @@ def historical_detail():
         plate=plate,
         start=start,
         end=end,
-        vehicle_name=vehicle.iloc[0]['device_name'] if not vehicle.empty else '',
+        vehicle_name=device_name,
         chart_path=chart_path,
         total_mileage=round(total_mileage, 2),
         total_fuel=round(total_fuel, 2),
         avg_speed=avg_speed,
-        all_plates=all_plates
+        all_plates=all_plates  # ✅ list kendaraan aktif
     )
 
 if __name__ == "__main__":

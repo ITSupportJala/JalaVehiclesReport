@@ -31,6 +31,19 @@ background-color: white;
 margin: 0;
 }
 
+.fuel-select option[value="Pertalite"] {
+  background-color: #28a745; /* hijau */
+  color: white;
+}
+.fuel-select option[value="Pertamax"] {
+  background-color: #007bff; /* biru */
+  color: white;
+}
+.fuel-select option[value="Solar"] {
+  background-color: #dc3545; /* merah */
+  color: white;
+}
+
 .sidebar {
 background-color: var(--primary); 
 min-height: 100vh;

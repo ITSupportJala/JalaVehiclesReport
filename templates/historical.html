@@ -19,13 +19,13 @@
 
         <!-- Form Filter -->
         <form method="GET" action="{{ url_for('historical_data') }}" class="row g-3 mb-4" onsubmit="showLoading()">
-          <div class="col-md-3">
-            <label class="form-label">Plat</label>
+          <div class="col-md-4">
+            <label class="form-label">Kendaraan</label>
             <select name="plate" class="form-select">
               <option value="all" {% if selected_plate == 'all' %}selected{% endif %}>Semua</option>
               {% for v in imei_list %}
               <option value="{{ v.plate }}" {% if selected_plate == v.plate %}selected{% endif %}>
-                {{ v.plate }}
+                {{ v.plate }} - {{ v.device_name }}
               </option>
               {% endfor %}
             </select>
@@ -38,7 +38,7 @@
             <label class="form-label">Sampai Tanggal</label>
             <input type="date" class="form-control" name="end_date" value="{{ end_date }}">
           </div>
-          <div class="col-md-3 d-flex align-items-end">
+          <div class="col-md-2 d-flex align-items-end">
             <button type="submit" class="btn btn-primary w-100">Tampilkan</button>
           </div>
         </form>
@@ -59,7 +59,7 @@
               <tr>
                 <th>No</th>
                 <th>Tanggal</th>
-                <th>Plat</th>
+                <th>Kendaraan</th>
                 <th>Kecepatan Rata-rata</th>
                 <th>Mileage (km)</th>
                 <th>BBM Terpakai (L)</th>
@@ -72,7 +72,7 @@
                 <td>{{ loop.index }}</td>
                 <td>{{ item.date }}</td>
                 <td>
-                  {{ item.plate }}
+                  {{ item.plate }} - {{ item.device_name }}
                   <a href="{{ url_for('historical_detail', plate=item.plate, imei=item.imei, start=start_date, end=end_date) }}">
                     Detail
                   </a>
@@ -88,7 +88,7 @@
           {% elif start_date and end_date %}
           <p class="text-muted">Tidak ada data tersedia untuk tanggal tersebut.</p>
           {% else %}
-          <p class="text-muted">Silakan pilih tanggal terlebih dahulu untuk menampilkan data.</p>
+          <p class="text-muted">Silakan pilih kendaraan dan tanggal terlebih dahulu untuk menampilkan data.</p>
           {% endif %}
         </div>
       </main>
